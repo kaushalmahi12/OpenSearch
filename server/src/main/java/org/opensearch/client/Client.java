@@ -55,6 +55,9 @@ import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexRequestBuilder;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.sandbox.CreateSandboxAction;
+import org.opensearch.action.sandbox.CreateSandboxRequest;
+import org.opensearch.action.sandbox.CreateSandboxResponse;
 import org.opensearch.action.search.ClearScrollRequest;
 import org.opensearch.action.search.ClearScrollRequestBuilder;
 import org.opensearch.action.search.ClearScrollResponse;
@@ -486,4 +489,10 @@ public interface Client extends OpenSearchClient, Releasable {
     default Client getRemoteClusterClient(String clusterAlias) {
         throw new UnsupportedOperationException("this client doesn't support remote cluster connections");
     }
+
+    /**
+     * creates the @Link Sandbox object
+     * @param listener
+     */
+    void createSandbox(CreateSandboxRequest request, ActionListener<CreateSandboxResponse> listener);
 }

@@ -69,6 +69,7 @@ import org.opensearch.gateway.MetadataStateFormat;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.indices.replication.common.ReplicationType;
 import org.opensearch.plugins.MapperPlugin;
+import org.opensearch.search.sandbox.Sandbox;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -252,7 +253,7 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
     private final String clusterUUID;
     private final boolean clusterUUIDCommitted;
     private final long version;
-
+    List<Sandbox> sandboxes;
     private final CoordinationMetadata coordinationMetadata;
 
     private final Settings transientSettings;
@@ -292,7 +293,8 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
         String[] visibleOpenIndices,
         String[] allClosedIndices,
         String[] visibleClosedIndices,
-        SortedMap<String, IndexAbstraction> indicesLookup
+        SortedMap<String, IndexAbstraction> indicesLookup,
+        List<Sandbox> sandboxes
     ) {
         this.clusterUUID = clusterUUID;
         this.clusterUUIDCommitted = clusterUUIDCommitted;
@@ -323,6 +325,7 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
         this.allClosedIndices = allClosedIndices;
         this.visibleClosedIndices = visibleClosedIndices;
         this.indicesLookup = indicesLookup;
+        this.sandboxes = sandboxes;
     }
 
     public long version() {
@@ -813,6 +816,10 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
         return templates();
     }
 
+    public List<Sandbox> getSandboxes() {
+        return sandboxes;
+    }
+
     public Map<String, ComponentTemplate> componentTemplates() {
         return Optional.ofNullable((ComponentTemplateMetadata) this.custom(ComponentTemplateMetadata.TYPE))
             .map(ComponentTemplateMetadata::componentTemplates)
@@ -1150,6 +1157,7 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
         private final Map<String, IndexMetadata> indices;
         private final Map<String, IndexTemplateMetadata> templates;
         private final Map<String, Custom> customs;
+        private List<Sandbox> sandboxes;
         private final Metadata previousMetadata;
 
         public Builder() {
@@ -1158,6 +1166,7 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
             templates = new HashMap<>();
             customs = new HashMap<>();
             previousMetadata = null;
+            sandboxes = new ArrayList<>();
             indexGraveyard(IndexGraveyard.builder().build()); // create new empty index graveyard to initialize
         }
 
@@ -1173,6 +1182,7 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
             this.templates = new HashMap<>(metadata.templates);
             this.customs = new HashMap<>(metadata.customs);
             this.previousMetadata = metadata;
+            this.sandboxes = metadata.sandboxes;
         }
 
         public Builder put(IndexMetadata.Builder indexMetadataBuilder) {
@@ -1456,6 +1466,11 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
             return this;
         }
 
+        public Builder sandboxes(List<Sandbox> sandboxes) {
+            this.sandboxes = sandboxes;
+            return this;
+        }
+
         public Metadata build() {
             DataStreamMetadata dataStreamMetadata = (DataStreamMetadata) this.customs.get(DataStreamMetadata.TYPE);
             DataStreamMetadata previousDataStreamMetadata = (previousMetadata != null)
@@ -1490,7 +1505,8 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
                 Arrays.copyOf(previousMetadata.visibleOpenIndices, previousMetadata.visibleOpenIndices.length),
                 Arrays.copyOf(previousMetadata.allClosedIndices, previousMetadata.allClosedIndices.length),
                 Arrays.copyOf(previousMetadata.visibleClosedIndices, previousMetadata.visibleClosedIndices.length),
-                Collections.unmodifiableSortedMap(previousMetadata.indicesLookup)
+                Collections.unmodifiableSortedMap(previousMetadata.indicesLookup),
+                sandboxes
             );
         }
 
@@ -1613,7 +1629,8 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
                 visibleOpenIndicesArray,
                 allClosedIndicesArray,
                 visibleClosedIndicesArray,
-                indicesLookup
+                indicesLookup,
+                sandboxes
             );
         }
 
@@ -1759,6 +1776,15 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
                     builder.endObject();
                 }
             }
+//            builder.array("sandboxes", metadata.sandboxes());
+            if (metadata.sandboxes != null) {
+                builder.startArray("sandboxes");
+                for (Sandbox sandbox : metadata.sandboxes) {
+                    sandbox.toXContent(builder, params);
+                }
+                builder.endArray();
+            }
+
             builder.endObject();
         }
 
@@ -1816,6 +1842,13 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
                             parser.skipChildren();
                         }
                     }
+                } else if (token == XContentParser.Token.START_ARRAY) {
+                    List<Sandbox> sandboxes1 = new ArrayList<>();
+                    while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
+                        Sandbox sandbox = Sandbox.Builder.fromXContent(parser);
+                        sandboxes1.add(sandbox);
+                    }
+                    builder.sandboxes(sandboxes1);
                 } else if (token.isValue()) {
                     if ("version".equals(currentFieldName)) {
                         builder.version = parser.longValue();

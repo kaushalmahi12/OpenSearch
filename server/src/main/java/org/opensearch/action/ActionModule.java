@@ -251,6 +251,8 @@ import org.opensearch.action.ingest.SimulatePipelineAction;
 import org.opensearch.action.ingest.SimulatePipelineTransportAction;
 import org.opensearch.action.main.MainAction;
 import org.opensearch.action.main.TransportMainAction;
+import org.opensearch.action.sandbox.CreateSandboxAction;
+import org.opensearch.action.sandbox.TransportCreateSandboxAction;
 import org.opensearch.action.search.ClearScrollAction;
 import org.opensearch.action.search.CreatePitAction;
 import org.opensearch.action.search.DeletePitAction;
@@ -445,6 +447,7 @@ import org.opensearch.rest.action.ingest.RestDeletePipelineAction;
 import org.opensearch.rest.action.ingest.RestGetPipelineAction;
 import org.opensearch.rest.action.ingest.RestPutPipelineAction;
 import org.opensearch.rest.action.ingest.RestSimulatePipelineAction;
+import org.opensearch.rest.action.sandbox.RestCreateSandboxAction;
 import org.opensearch.rest.action.search.RestClearScrollAction;
 import org.opensearch.rest.action.search.RestCountAction;
 import org.opensearch.rest.action.search.RestCreatePitAction;
@@ -762,6 +765,9 @@ public class ActionModule extends AbstractModule {
         actions.register(GetSearchPipelineAction.INSTANCE, GetSearchPipelineTransportAction.class);
         actions.register(DeleteSearchPipelineAction.INSTANCE, DeleteSearchPipelineTransportAction.class);
 
+        //Sandbox actions
+        actions.register(CreateSandboxAction.INSTANCE, TransportCreateSandboxAction.class);
+
         return unmodifiableMap(actions.getRegistry());
     }
 
@@ -950,6 +956,9 @@ public class ActionModule extends AbstractModule {
         registerHandler.accept(new RestPutSearchPipelineAction());
         registerHandler.accept(new RestGetSearchPipelineAction());
         registerHandler.accept(new RestDeleteSearchPipelineAction());
+
+        // Sandbox APIs
+        registerHandler.accept(new RestCreateSandboxAction());
 
         // Extensions API
         if (FeatureFlags.isEnabled(FeatureFlags.EXTENSIONS)) {

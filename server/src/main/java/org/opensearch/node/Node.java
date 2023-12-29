@@ -44,6 +44,7 @@ import org.opensearch.action.ActionModule;
 import org.opensearch.action.ActionModule.DynamicActionRegistry;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.admin.cluster.snapshots.status.TransportNodesSnapshotsStatus;
+import org.opensearch.action.sandbox.SandboxModule;
 import org.opensearch.action.search.SearchExecutionStatsCollector;
 import org.opensearch.action.search.SearchPhaseController;
 import org.opensearch.action.search.SearchRequestOperationsCompositeListenerFactory;
@@ -680,6 +681,7 @@ public class Node implements Closeable {
                 pluginCircuitBreakers,
                 settingsModule.getClusterSettings()
             );
+            modules.add(new SandboxModule());
             // File cache will be initialized by the node once circuit breakers are in place.
             initializeFileCache(settings, circuitBreakerService.getBreaker(CircuitBreaker.REQUEST));
             final MonitorService monitorService = new MonitorService(settings, nodeEnvironment, threadPool, fileCache);

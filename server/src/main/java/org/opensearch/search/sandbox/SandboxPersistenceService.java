@@ -18,11 +18,15 @@ import org.opensearch.cluster.service.ClusterManagerTaskThrottler;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Priority;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Persistence Service for Sandbox objects
@@ -33,12 +37,36 @@ public class SandboxPersistenceService implements Persistable {
     private final ClusterService clusterService;
     private static final String SOURCE = "sandbox-persistence-service";
     private static final String CREATE_SANDBOX_THROTTLING_KEY = "create-sandbox";
+    private static final String SANDBOX_COUNT_SETTING_NAME = "node.sandbox.max_count";
+
+    private static AtomicInteger inflightCreateSandboxRequestCount;
+    private volatile int maxSandboxCount;
+    public static final int DEFAULT_MAX_SANDBOX_COUNT_VALUE = 100;
+    public static final Setting<Integer> MAX_SANDBOX_COUNT = Setting.intSetting(
+        SANDBOX_COUNT_SETTING_NAME,
+        DEFAULT_MAX_SANDBOX_COUNT_VALUE,
+        0,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
     final ClusterManagerTaskThrottler.ThrottlingKey createSandboxThrottlingKey;
 
     @Inject
-    public SandboxPersistenceService(final ClusterService clusterService) {
+    public SandboxPersistenceService(final ClusterService clusterService,
+                                     final Settings settings,
+                                     final ClusterSettings clusterSettings) {
         this.clusterService = clusterService;
         this.createSandboxThrottlingKey = clusterService.registerClusterManagerTask(CREATE_SANDBOX_THROTTLING_KEY, true);
+        maxSandboxCount = MAX_SANDBOX_COUNT.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(MAX_SANDBOX_COUNT, this::setMaxSandboxCount);
+        inflightCreateSandboxRequestCount = new AtomicInteger();
+    }
+
+    public void setMaxSandboxCount(int newMaxSandboxCount) {
+        if (newMaxSandboxCount < 0) {
+            throw new IllegalArgumentException("node.sandbox.max_count can't be negative");
+        }
+        this.maxSandboxCount = newMaxSandboxCount;
     }
 
     public void persist(Sandbox sandbox, ActionListener<CreateSandboxResponse> listener) {
@@ -59,6 +87,7 @@ public class SandboxPersistenceService implements Persistable {
 
             @Override
             public void onFailure(String source, Exception e) {
+                inflightCreateSandboxRequestCount.decrementAndGet();
                 logger.warn("failed to save Sandbox object due to error: {}, for source: {}", e.getMessage(), source);
                 CreateSandboxResponse response = new CreateSandboxResponse();
                 response.setRestStatus(RestStatus.FAILED_DEPENDENCY);
@@ -67,12 +96,11 @@ public class SandboxPersistenceService implements Persistable {
 
             @Override
             public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
+                inflightCreateSandboxRequestCount.decrementAndGet();
                 CreateSandboxResponse response = new CreateSandboxResponse(sandbox);
                 response.setRestStatus(RestStatus.OK);
                 listener.onResponse(response);
             }
-
-            //TODO: create the hook to call the listener if needed once the cluster state is published
         });
     }
 
@@ -83,14 +111,27 @@ public class SandboxPersistenceService implements Persistable {
      * @return
      */
     private ClusterState saveNewSandboxObjectInClusterState(final Sandbox sandbox, final ClusterState currentClusterState) {
-        // TODO: add checks whether this already entails any existing sandboxes
         final Metadata metadata = currentClusterState.metadata();
         final List<Sandbox> previousSandboxes = metadata.getSandboxes();
         final List<Sandbox> newSandboxes = new ArrayList<>(previousSandboxes);
+        if (isAlreadyCoveredInExistingOnes(sandbox, previousSandboxes)) {
+            // TODO: Should be throw an exception instead
+            logger.warn("New sandbox is already covered in one of the existing sandboxes. not creating a new one..");
+            return currentClusterState;
+        }
+        if (inflightCreateSandboxRequestCount.incrementAndGet() + previousSandboxes.size() > maxSandboxCount) {
+            inflightCreateSandboxRequestCount.decrementAndGet();
+            logger.error("{} value exceeded its assgined limit of {}", SANDBOX_COUNT_SETTING_NAME, maxSandboxCount);
+            throw new RuntimeException("Can't create more than " + maxSandboxCount + " in the system");
+        }
         newSandboxes.add(sandbox);
         return ClusterState.builder(currentClusterState)
             .metadata(
                 Metadata.builder(metadata).sandboxes(newSandboxes).build()
             ).build();
+    }
+
+    private boolean isAlreadyCoveredInExistingOnes(final Sandbox sandbox, final List<Sandbox> existingSandboxes) {
+        return existingSandboxes.stream().anyMatch(sandbox1 -> sandbox1.hasOvershadowingSelectionAttribute(sandbox));
     }
 }

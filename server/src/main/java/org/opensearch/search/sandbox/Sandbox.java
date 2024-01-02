@@ -19,7 +19,6 @@ import org.opensearch.core.xcontent.XContentParser;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -42,10 +41,10 @@ public class Sandbox implements ToXContentObject, Writeable {
     // This field will help giving meaningful names to sandbox object which later can be used to delete/retrieve objects
     List<String> tags;
 
-    private static final String JVM_ALLOCATIONS = "jvm_allocations";
-    private static final String CPU_USAGE = "cpu_usage";
+    public static final String CPU = "cpu";
+    public static final String JVM = "jvm";
     private static final String ATTRIBUTE_NAME = "attribute_name";
-    private static final String ATTRIBUTE_REGEX_VALUE = "attribute_regex_value";
+    private static final String ATTRIBUTE_VALUE_PREFIX = "attribute_value_prefix";
 
     private Sandbox(String _id, Integer priority, String parentId, List<SelectionAttribute> selectionAttributes,
                     ResourceConsumptionLimits resourceConsumptionLimits, List<String> tags) {
@@ -218,8 +217,9 @@ public class Sandbox implements ToXContentObject, Writeable {
             selectionAttribute.toXContent(builder, params);
         }
         builder.endArray();
-        builder.field(RESOURCE_CONSUMPTION_LIMITS, resourceConsumptionLimits);
+        resourceConsumptionLimits.toXContent(builder, params);
         builder.array(TAGS, tags);
+        builder.endObject();
         return builder;
     }
 
@@ -228,18 +228,22 @@ public class Sandbox implements ToXContentObject, Writeable {
      */
     public static class SelectionAttribute implements ToXContent, Writeable, Writeable.Reader<SelectionAttribute> {
         private final String attributeNane;
-        private final String attributeValueRegex;
+        private final String attributeValuePrefix;
 
         public SelectionAttribute(StreamInput in) throws IOException {
             attributeNane = in.readString();
-            attributeValueRegex = in.readString();
+            attributeValuePrefix = in.readString();
         }
 
-        public SelectionAttribute(String attributeNane, String attributeValueRegex) {
+        public SelectionAttribute(String attributeNane, String attributeValuePrefix) {
             Objects.requireNonNull(attributeNane, "selection attribute name can't be null for sandbox");
-            Objects.requireNonNull(attributeValueRegex, "selection value can't be null for sandbox");
+            Objects.requireNonNull(attributeValuePrefix, "selection value can't be null for sandbox");
+
+            if (attributeValuePrefix.isEmpty()) {
+                throw new IllegalArgumentException("sandbox selection attribute value length should be greater than 1");
+            }
             this.attributeNane = attributeNane;
-            this.attributeValueRegex = attributeValueRegex;
+            this.attributeValuePrefix = attributeValuePrefix;
         }
 
         /**
@@ -269,9 +273,9 @@ public class Sandbox implements ToXContentObject, Writeable {
                         currentFieldName = parser.currentName();
                     } else if (token.isValue()) {
                         if (currentFieldName.equals(ATTRIBUTE_NAME)) {
-                            builder.attributeName(parser.text());
-                        } else if (currentFieldName.equals(ATTRIBUTE_REGEX_VALUE)) {
-                            builder.attributeRegexVal(parser.text());
+                            builder = builder.attributeName(parser.text());
+                        } else if (currentFieldName.equals(ATTRIBUTE_VALUE_PREFIX)) {
+                            builder = builder.attributeRegexVal(parser.text());
                         } else {
                             throw new IllegalArgumentException(currentFieldName + " is unrecognized field for Sandbox.SelectionAttribute");
                         }
@@ -289,7 +293,7 @@ public class Sandbox implements ToXContentObject, Writeable {
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
             builder.startObject();
             builder.field(ATTRIBUTE_NAME, attributeNane);
-            builder.field(ATTRIBUTE_REGEX_VALUE, attributeValueRegex);
+            builder.field(ATTRIBUTE_VALUE_PREFIX, attributeValuePrefix);
             builder.endObject();
             return builder;
         }
@@ -297,13 +301,118 @@ public class Sandbox implements ToXContentObject, Writeable {
         @Override
         public void writeTo(StreamOutput out) throws IOException {
             out.writeString(attributeNane);
-            out.writeString(attributeValueRegex);
+            out.writeString(attributeValuePrefix);
         }
 
         @Override
         public SelectionAttribute read(StreamInput in) throws IOException {
             return new SelectionAttribute(in);
         }
+
+        public boolean overshadows(final SelectionAttribute other) {
+            return attributeNane.equals(other.attributeNane) && attributeValuePrefix.startsWith(other.attributeValuePrefix);
+        }
+    }
+
+    /**
+     * Class to define system resource level thresholds
+     */
+    public static class SystemResource implements ToXContent, Writeable {
+        static final String LOW = "low";
+        static final String HIGH = "high";
+        double low;
+        double high;
+        String name;
+
+        SystemResource(double low, double high, String name) {
+            isValid(low, high);
+            this.low = low;
+            this.high = high;
+            this.name = name;
+        }
+
+        private static void isValid(double low, double high) {
+            if (low > high) {
+                throw new IllegalArgumentException("System resource low limit can't be greater than high.");
+            }
+        }
+
+        SystemResource(StreamInput in) throws  IOException {
+            this.low = in.readDouble();
+            this.high = in.readDouble();
+            this.name = in.readString();
+            isValid(low, high);
+        }
+
+
+        @Override
+        public void writeTo(StreamOutput out) throws IOException {
+            out.writeDouble(low);
+            out.writeDouble(high);
+            out.writeString(name);
+        }
+
+        @Override
+        public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+            builder.startObject(name);
+            builder.field(LOW, low);
+            builder.field(HIGH, high);
+            builder.endObject();
+            return builder;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static class Builder {
+            String name;
+            double low;
+            double high;
+
+            Builder() {
+            }
+
+            Builder name(String name) {
+                this.name = name;
+                return this;
+            }
+
+            Builder low(double low) { this.low = low; return this; }
+
+            Builder high(double high) { this.high = high; return this; }
+
+
+            public static SystemResource fromXContent(XContentParser parser, String name) throws IOException {
+                Builder builder = new Builder();
+                builder.name(name);
+                XContentParser.Token token;
+                String currentFieldName = "";
+                while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
+                    if (token == XContentParser.Token.FIELD_NAME) {
+                        currentFieldName = parser.currentName();
+                    } else if (token.isValue()) {
+                        if (currentFieldName.equals(LOW)) {
+                            builder = builder.low(parser.doubleValue());
+                        } else if (currentFieldName.equals(HIGH)) {
+                            builder = builder.high(parser.doubleValue());
+                        } else {
+                            throw new IllegalArgumentException(currentFieldName + " is an unexpected field name for SystemResource");
+                        }
+                    }
+                }
+                return builder.build();
+            }
+
+            public SystemResource build() {
+                return new SystemResource(low, high, name);
+            }
+        }
+
     }
 
     /**
@@ -311,43 +420,43 @@ public class Sandbox implements ToXContentObject, Writeable {
      */
     public static class ResourceConsumptionLimits implements ToXContent, Writeable {
         // Allocations in percent w.r.t. total heap
-        private final Double jvmAllocations;
+        private final SystemResource jvm;
         // CPU usage in absolute terms irrespective of cores
-        private final Double cpuUsage;
+        private final SystemResource cpu;
 
-        public ResourceConsumptionLimits(Double jvmAllocations, Double cpuUsage) {
-            this.jvmAllocations = jvmAllocations;
-            this.cpuUsage = cpuUsage;
+        public ResourceConsumptionLimits(SystemResource jvmAllocations, SystemResource cpuUsage) {
+            this.jvm = jvmAllocations;
+            this.cpu = cpuUsage;
         }
 
         public ResourceConsumptionLimits(StreamInput in) throws IOException {
-            jvmAllocations = in.readDouble();
-            cpuUsage = in.readDouble();
+            jvm = new SystemResource(in);
+            cpu = new SystemResource(in);
         }
 
         @Override
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-            builder.startObject();
-            builder.field(JVM_ALLOCATIONS, jvmAllocations);
-            builder.field(CPU_USAGE, cpuUsage);
+            builder.startObject(RESOURCE_CONSUMPTION_LIMITS);
+            jvm.toXContent(builder, params);
+            cpu.toXContent(builder, params);
             builder.endObject();
             return builder;
         }
 
 
         static class Builder {
-            private Double jvmAllocationsLimit;
-            private Double cpuUsageLimit;
+            private SystemResource jvm;
+            private SystemResource cpu;
 
             public Builder() {}
 
-            Builder jvmAllocations(double jvmAllocationsLimit) {
-                this.jvmAllocationsLimit = jvmAllocationsLimit;
+            Builder jvmAllocations(SystemResource jvmAllocationsLimit) {
+                this.jvm = jvmAllocationsLimit;
                 return this;
             }
 
-            Builder cpuUsage(double cpuUsageLimit) {
-                this.cpuUsageLimit = cpuUsageLimit;
+            Builder cpuUsage(SystemResource cpuUsageLimit) {
+                this.cpu = cpuUsageLimit;
                 return this;
             }
 
@@ -358,28 +467,28 @@ public class Sandbox implements ToXContentObject, Writeable {
                 while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
                     if (token == XContentParser.Token.FIELD_NAME) {
                         currentFieldName = parser.currentName();
-                    } else if (token.isValue()) {
-                        if (currentFieldName.equals(JVM_ALLOCATIONS)) {
-                            builder.jvmAllocations(parser.doubleValue());
-                        } else if (currentFieldName.equals(CPU_USAGE)) {
-                            builder.cpuUsage(parser.doubleValue());
-                        } else {
-                            throw new IllegalArgumentException(currentFieldName + " is unrecognized" +
-                                " field for Sandbox.ResourceConsumptionLimits");
-                        }
+                    } else if (token == XContentParser.Token.START_OBJECT) {
+                       SystemResource systemResource = SystemResource.Builder.fromXContent(parser, currentFieldName);
+                       if (systemResource.getName().equals(CPU)) {
+                           builder = builder.cpuUsage(systemResource);
+                       } else if (systemResource.getName().equals(JVM)) {
+                           builder = builder.jvmAllocations(systemResource);
+                       } else {
+                           throw new IllegalArgumentException("unexpected system resource for");
+                       }
                     }
                 }
                 return builder.build();
             }
             ResourceConsumptionLimits build() {
-                return new ResourceConsumptionLimits(jvmAllocationsLimit, cpuUsageLimit);
+                return new ResourceConsumptionLimits(jvm, cpu);
             }
         }
 
         @Override
         public void writeTo(StreamOutput out) throws IOException {
-            out.writeDouble(jvmAllocations);
-            out.writeDouble(cpuUsage);
+            jvm.writeTo(out);
+            cpu.writeTo(out);
         }
     }
 
@@ -405,5 +514,19 @@ public class Sandbox implements ToXContentObject, Writeable {
 
     public List<String> getTags() {
         return tags;
+    }
+
+    public boolean hasOvershadowingSelectionAttribute(final Sandbox sandbox) {
+        boolean overshadows = true;
+        for (SelectionAttribute selectionAttribute: selectionAttributes) {
+            for (SelectionAttribute otherSelectionAttribute: sandbox.getSelectionAttributes()) {
+                if (!selectionAttribute.overshadows(otherSelectionAttribute)) {
+                    overshadows = false;
+                    break;
+                }
+            }
+            if (overshadows) break;
+        }
+        return overshadows;
     }
 }

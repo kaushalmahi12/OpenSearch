@@ -22,6 +22,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.rest.RestStatus;
 
 import java.util.ArrayList;
@@ -32,7 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Persistence Service for Sandbox objects
  * for now we are saving the objects in @link Metadata of @link ClusterState object
  */
-public class SandboxPersistenceService implements Persistable {
+public class SandboxPersistenceService implements Persistable<Sandbox> {
     private static final Logger logger = LogManager.getLogger(SandboxPersistenceService.class);
     private final ClusterService clusterService;
     private static final String SOURCE = "sandbox-persistence-service";
@@ -69,11 +70,11 @@ public class SandboxPersistenceService implements Persistable {
         this.maxSandboxCount = newMaxSandboxCount;
     }
 
-    public void persist(Sandbox sandbox, ActionListener<CreateSandboxResponse> listener) {
-        persistInClusterStateMetadata(sandbox, listener);
+    public <U extends ActionResponse> void persist(Sandbox sandbox, ActionListener<U> listener) {
+        persistInClusterStateMetadata(sandbox, (ActionListener<CreateSandboxResponse>) listener);
     }
 
-    void persistInClusterStateMetadata(Sandbox sandbox, ActionListener<CreateSandboxResponse> listener) {
+     void persistInClusterStateMetadata(Sandbox sandbox, ActionListener<CreateSandboxResponse> listener) {
         clusterService.submitStateUpdateTask(SOURCE, new ClusterStateUpdateTask(Priority.URGENT) {
             @Override
             public ClusterState execute(ClusterState currentState) throws Exception {

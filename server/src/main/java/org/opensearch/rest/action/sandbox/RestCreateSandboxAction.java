@@ -44,7 +44,7 @@ public class RestCreateSandboxAction extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         CreateSandboxRequest createSandboxRequest = new CreateSandboxRequest();
         request.applyContentParser((parser) -> {
-            parseBodyIntoRequest(createSandboxRequest, parser);
+            parseRestRequest(createSandboxRequest, parser);
         });
 //        try (XContentParser parser = request.contentParser()) {
 //
@@ -56,7 +56,7 @@ public class RestCreateSandboxAction extends BaseRestHandler {
         };
     }
 
-    private void parseBodyIntoRequest(CreateSandboxRequest request, XContentParser parser) throws IOException {
+    private void parseRestRequest(CreateSandboxRequest request, XContentParser parser) throws IOException {
          final CreateSandboxRequest createSandboxRequest = CreateSandboxRequest.fromXContent(parser);
          request.setPriority(createSandboxRequest.getPriority());
          request.setParentSandboxId(createSandboxRequest.getParentSandboxId());

@@ -23,12 +23,12 @@ import org.opensearch.transport.TransportService;
  */
 public class TransportCreateSandboxAction extends HandledTransportAction<CreateSandboxRequest, CreateSandboxResponse> {
     private final ThreadPool threadPool;
-    private final Persistable sandboxPersistenceService;
+    private final Persistable<Sandbox> sandboxPersistenceService;
 
     @Inject
     public TransportCreateSandboxAction(String actionName, TransportService transportService,
                                         ActionFilters actionFilters, ThreadPool threadPool,
-                                        Persistable sandboxPersistenceService) {
+                                        Persistable<Sandbox> sandboxPersistenceService) {
         super(actionName, transportService, actionFilters, CreateSandboxRequest::new);
         this.threadPool = threadPool;
         this.sandboxPersistenceService = sandboxPersistenceService;

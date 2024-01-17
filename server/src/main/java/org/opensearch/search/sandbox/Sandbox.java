@@ -310,7 +310,7 @@ public class Sandbox implements ToXContentObject, Writeable {
         }
 
         public boolean overshadows(final SelectionAttribute other) {
-            return attributeNane.equals(other.attributeNane) && attributeValuePrefix.startsWith(other.attributeValuePrefix);
+            return attributeNane.equals(other.attributeNane) && other.attributeValuePrefix.startsWith(attributeValuePrefix);
         }
     }
 
@@ -516,12 +516,16 @@ public class Sandbox implements ToXContentObject, Writeable {
         return tags;
     }
 
+    private boolean haveSamePriority(final int newSandboxPriority) {
+        return priority == newSandboxPriority;
+    }
+
     public boolean hasOvershadowingSelectionAttribute(final Sandbox sandbox) {
-        boolean overshadows = true;
+        boolean overshadows = haveSamePriority(sandbox.getPriority());
         for (SelectionAttribute selectionAttribute: selectionAttributes) {
             for (SelectionAttribute otherSelectionAttribute: sandbox.getSelectionAttributes()) {
-                if (!selectionAttribute.overshadows(otherSelectionAttribute)) {
-                    overshadows = false;
+                if (selectionAttribute.overshadows(otherSelectionAttribute)) {
+                    overshadows = true;
                     break;
                 }
             }

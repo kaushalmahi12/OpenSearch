@@ -29,7 +29,7 @@ public class TransportCreateSandboxAction extends HandledTransportAction<CreateS
     public TransportCreateSandboxAction(String actionName, TransportService transportService,
                                         ActionFilters actionFilters, ThreadPool threadPool,
                                         Persistable<Sandbox> sandboxPersistenceService) {
-        super(actionName, transportService, actionFilters, CreateSandboxRequest::new);
+        super(CreateSandboxAction.NAME, transportService, actionFilters, CreateSandboxRequest::new);
         this.threadPool = threadPool;
         this.sandboxPersistenceService = sandboxPersistenceService;
     }

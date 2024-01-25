@@ -369,6 +369,10 @@ public class Sandbox implements ToXContentObject, Writeable {
             return new Builder();
         }
 
+        /**
+         * Builder class for sandbox
+         * @opensearch.internal
+         */
         public static class Builder {
             String name;
             double low;

@@ -252,7 +252,9 @@ import org.opensearch.action.ingest.SimulatePipelineTransportAction;
 import org.opensearch.action.main.MainAction;
 import org.opensearch.action.main.TransportMainAction;
 import org.opensearch.action.sandbox.CreateSandboxAction;
+import org.opensearch.action.sandbox.GetSandboxAction;
 import org.opensearch.action.sandbox.TransportCreateSandboxAction;
+import org.opensearch.action.sandbox.TransportGetSandboxAction;
 import org.opensearch.action.search.ClearScrollAction;
 import org.opensearch.action.search.CreatePitAction;
 import org.opensearch.action.search.DeletePitAction;
@@ -448,6 +450,7 @@ import org.opensearch.rest.action.ingest.RestGetPipelineAction;
 import org.opensearch.rest.action.ingest.RestPutPipelineAction;
 import org.opensearch.rest.action.ingest.RestSimulatePipelineAction;
 import org.opensearch.rest.action.sandbox.RestCreateSandboxAction;
+import org.opensearch.rest.action.sandbox.RestGetSandboxAction;
 import org.opensearch.rest.action.search.RestClearScrollAction;
 import org.opensearch.rest.action.search.RestCountAction;
 import org.opensearch.rest.action.search.RestCreatePitAction;
@@ -767,6 +770,7 @@ public class ActionModule extends AbstractModule {
 
         //Sandbox actions
         actions.register(CreateSandboxAction.INSTANCE, TransportCreateSandboxAction.class);
+        actions.register(GetSandboxAction.INSTANCE, TransportGetSandboxAction.class);
 
         return unmodifiableMap(actions.getRegistry());
     }
@@ -959,6 +963,7 @@ public class ActionModule extends AbstractModule {
 
         // Sandbox APIs
         registerHandler.accept(new RestCreateSandboxAction());
+        registerHandler.accept(new RestGetSandboxAction());
 
         // Extensions API
         if (FeatureFlags.isEnabled(FeatureFlags.EXTENSIONS)) {

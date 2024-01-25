@@ -11,6 +11,8 @@ package org.opensearch.search.sandbox;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.sandbox.CreateSandboxResponse;
+import org.opensearch.action.sandbox.GetSandboxRequest;
+import org.opensearch.action.sandbox.GetSandboxResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateUpdateTask;
 import org.opensearch.cluster.metadata.Metadata;
@@ -24,10 +26,12 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.tasks.Task;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * Persistence Service for Sandbox objects
@@ -135,4 +139,34 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
     private boolean isAlreadyCoveredInExistingOnes(final Sandbox sandbox, final List<Sandbox> existingSandboxes) {
         return existingSandboxes.stream().anyMatch(sandbox1 -> sandbox1.hasOvershadowingSelectionAttribute(sandbox));
     }
+
+    public <U extends ActionResponse> void get(String _id, ActionListener<U> listener) {
+        getFromClusterStateMetadata(_id, (ActionListener<GetSandboxResponse>) listener);
+    }
+
+    void getFromClusterStateMetadata(String _id, ActionListener<GetSandboxResponse> listener) {
+        ClusterState currentState = clusterService.state();
+        List<Sandbox> currentSandboxes = currentState.getMetadata().getSandboxes();
+        List<Sandbox> resultSandboxes = new ArrayList<>();
+        if (_id == null || _id.equals("")) {
+            resultSandboxes = currentSandboxes;
+        } else {
+            resultSandboxes.addAll(currentSandboxes.stream()
+                .filter(sb -> sb.get_id().equals(_id))
+                .collect(Collectors.toList()));
+            if (resultSandboxes.isEmpty()) {
+                // error
+                logger.warn("No sandbox exists with the provided _id: {}", _id);
+                Exception e = new Exception(String.format("No sandbox exists with the provided _id: %s", _id));
+                GetSandboxResponse response = new GetSandboxResponse();
+                response.setRestStatus(RestStatus.NOT_FOUND);
+                listener.onFailure(e);
+                return;
+            }
+        }
+        GetSandboxResponse response = new GetSandboxResponse(resultSandboxes);
+        response.setRestStatus(RestStatus.OK);
+        listener.onResponse(response);
+    }
+
 }

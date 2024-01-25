@@ -357,6 +357,9 @@ import org.opensearch.action.ingest.SimulatePipelineResponse;
 import org.opensearch.action.sandbox.CreateSandboxAction;
 import org.opensearch.action.sandbox.CreateSandboxRequest;
 import org.opensearch.action.sandbox.CreateSandboxResponse;
+import org.opensearch.action.sandbox.GetSandboxAction;
+import org.opensearch.action.sandbox.GetSandboxRequest;
+import org.opensearch.action.sandbox.GetSandboxResponse;
 import org.opensearch.action.search.ClearScrollAction;
 import org.opensearch.action.search.ClearScrollRequest;
 import org.opensearch.action.search.ClearScrollRequestBuilder;
@@ -2095,5 +2098,10 @@ public abstract class AbstractClient implements Client {
     @Override
     public void createSandbox(CreateSandboxRequest request, ActionListener<CreateSandboxResponse> listener) {
         execute(CreateSandboxAction.INSTANCE, request, listener);
+    }
+
+    @Override
+    public void getSandbox(GetSandboxRequest request, ActionListener<GetSandboxResponse> listener) {
+        execute(GetSandboxAction.INSTANCE, request, listener);
     }
 }

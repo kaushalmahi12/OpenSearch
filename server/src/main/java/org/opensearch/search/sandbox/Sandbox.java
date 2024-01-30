@@ -312,6 +312,14 @@ public class Sandbox implements ToXContentObject, Writeable {
         public boolean overshadows(final SelectionAttribute other) {
             return attributeNane.equals(other.attributeNane) && attributeValuePrefix.startsWith(other.attributeValuePrefix);
         }
+
+        public String getAttributeNane() {
+            return attributeNane;
+        }
+
+        public String getAttributeValuePrefix() {
+            return attributeValuePrefix;
+        }
     }
 
     /**
@@ -381,14 +389,14 @@ public class Sandbox implements ToXContentObject, Writeable {
             Builder() {
             }
 
-            Builder name(String name) {
+            public Builder name(String name) {
                 this.name = name;
                 return this;
             }
 
-            Builder low(double low) { this.low = low; return this; }
+            public Builder low(double low) { this.low = low; return this; }
 
-            Builder high(double high) { this.high = high; return this; }
+            public Builder high(double high) { this.high = high; return this; }
 
 
             public static SystemResource fromXContent(XContentParser parser, String name) throws IOException {
@@ -417,6 +425,13 @@ public class Sandbox implements ToXContentObject, Writeable {
             }
         }
 
+        public double getLow() {
+            return low;
+        }
+
+        public double getHigh() {
+            return high;
+        }
     }
 
     /**
@@ -493,6 +508,14 @@ public class Sandbox implements ToXContentObject, Writeable {
         public void writeTo(StreamOutput out) throws IOException {
             jvm.writeTo(out);
             cpu.writeTo(out);
+        }
+
+        public SystemResource getJvm() {
+            return jvm;
+        }
+
+        public SystemResource getCpu() {
+            return cpu;
         }
     }
 

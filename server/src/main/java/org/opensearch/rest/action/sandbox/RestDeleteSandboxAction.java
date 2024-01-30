@@ -8,7 +8,7 @@
 
 package org.opensearch.rest.action.sandbox;
 
-import org.opensearch.action.sandbox.CreateSandboxRequest;
+import org.opensearch.action.sandbox.DeleteSandboxRequest;
 import org.opensearch.action.sandbox.GetSandboxRequest;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.XContentParser;
@@ -21,39 +21,39 @@ import java.util.List;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
-import static org.opensearch.rest.RestRequest.Method.GET;
+import static org.opensearch.rest.RestRequest.Method.DELETE;
 
 /**
- * Rest Action for GetSandbox Action
+ * Rest Action for DeleteSandbox Action
  */
-public class RestGetSandboxAction extends BaseRestHandler {
+public class RestDeleteSandboxAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
         return unmodifiableList(
-            asList(new Route(GET, "_sandbox/{_id}"), new Route(GET, "_sandbox/"))
+            asList(new Route(DELETE, "_sandbox/{_id}"), new Route(DELETE, "_sandbox"))
         );
     }
 
     @Override
     public String getName() {
-        return "get_sandbox";
+        return "delete_sandbox";
     }
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         String _id = request.param("_id");
-        GetSandboxRequest getSandboxRequest = new GetSandboxRequest(_id);
-        request.applyContentParser((parser) -> {
-            parseRestRequest(getSandboxRequest, parser);
-        });
+        DeleteSandboxRequest deleteSandboxRequest = new DeleteSandboxRequest(_id);
+//        request.applyContentParser((parser) -> {
+//            parseRestRequest(deleteSandboxRequest, parser);
+//        });
         return channel -> {
-            client.getSandbox(getSandboxRequest, new RestStatusToXContentListener<>(channel));
+            client.deleteSandbox(deleteSandboxRequest, new RestStatusToXContentListener<>(channel));
         };
     }
 
-    private void parseRestRequest(GetSandboxRequest request, XContentParser parser) throws IOException {
-         final GetSandboxRequest getSandboxRequest = GetSandboxRequest.fromXContent(parser);
-         //request.setTags(getSandboxRequest.getTags());
-    }
+//    private void parseRestRequest(DeleteSandboxRequest request, XContentParser parser) throws IOException {
+//         final GetSandboxRequest getSandboxRequest = GetSandboxRequest.fromXContent(parser);
+//         //request.setTags(getSandboxRequest.getTags());
+//    }
 }

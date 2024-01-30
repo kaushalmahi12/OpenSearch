@@ -19,27 +19,27 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 /**
- * Transport level Action for GetSandboxAction
+ * Transport level Action for DeleteSandboxAction
  */
-public class TransportGetSandboxAction extends HandledTransportAction<GetSandboxRequest, GetSandboxResponse> {
+public class TransportDeleteSandboxAction extends HandledTransportAction<DeleteSandboxRequest, DeleteSandboxResponse> {
     private final ThreadPool threadPool;
     private final Persistable<Sandbox> sandboxPersistenceService;
 
     @Inject
-    public TransportGetSandboxAction(String actionName, TransportService transportService,
-                                     ActionFilters actionFilters, ThreadPool threadPool,
-                                     Persistable<Sandbox> sandboxPersistenceService) {
-        super(GetSandboxAction.NAME, transportService, actionFilters, GetSandboxRequest::new);
+    public TransportDeleteSandboxAction(String actionName, TransportService transportService,
+                                        ActionFilters actionFilters, ThreadPool threadPool,
+                                        Persistable<Sandbox> sandboxPersistenceService) {
+        super(DeleteSandboxAction.NAME, transportService, actionFilters, DeleteSandboxRequest::new);
         this.threadPool = threadPool;
         this.sandboxPersistenceService = sandboxPersistenceService;
     }
 
     @Override
-    protected void doExecute(Task task, GetSandboxRequest request, ActionListener<GetSandboxResponse> listener) {
+    protected void doExecute(Task task, DeleteSandboxRequest request, ActionListener<DeleteSandboxResponse> listener) {
         String _id = request.get_id();
         threadPool.executor(ThreadPool.Names.GENERIC).execute(
             () ->
-                sandboxPersistenceService.get(_id, listener)
-        );
+                sandboxPersistenceService.delete(_id, listener)
+            );
     }
 }

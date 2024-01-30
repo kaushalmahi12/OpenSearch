@@ -18,36 +18,38 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.search.sandbox.Sandbox;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Response object for the GetSandbox action
+ * Response object for the DeleteSandbox action
  */
-public class GetSandboxResponse extends ActionResponse implements ToXContent, StatusToXContentObject {
+public class DeleteSandboxResponse extends ActionResponse implements ToXContent, StatusToXContentObject {
     private final List<Sandbox> sandboxes;
     private RestStatus restStatus;
 
-    public GetSandboxResponse() {
+    public DeleteSandboxResponse() {
         this.sandboxes = null;
     }
-    public GetSandboxResponse(StreamInput in) throws IOException {
+    public DeleteSandboxResponse(StreamInput in) throws IOException {
         this.sandboxes = in.readList(Sandbox::new);
     }
 
-    public GetSandboxResponse(List<Sandbox> sandboxes) {
+    public DeleteSandboxResponse(List<Sandbox> sandboxes) {
         this.sandboxes = sandboxes;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeList(sandboxes);
+        // sandbox.writeTo(out);
+        for (Sandbox s: sandboxes) {
+            System.out.println(s.get_id());
+        }
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.startArray("available");
+        builder.startArray("deleted");
         for (Sandbox sb: sandboxes) {
             sb.toXContent(builder, params);
         }
@@ -56,16 +58,12 @@ public class GetSandboxResponse extends ActionResponse implements ToXContent, St
         return builder;
     }
 
-    public List<Sandbox> getSandboxes() {
-        return sandboxes;
+    public void setRestStatus(RestStatus status) {
+        this.restStatus = status;
     }
 
     @Override
     public RestStatus status() {
         return restStatus;
-    }
-
-    public void setRestStatus(RestStatus status) {
-        this.restStatus = status;
     }
 }

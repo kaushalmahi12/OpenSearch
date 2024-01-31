@@ -27,7 +27,6 @@ import java.util.List;
  */
 public class GetSandboxRequest extends ActionRequest implements Writeable.Reader<GetSandboxRequest> {
     String _id;
-    public GetSandboxRequest() {}
 
     public GetSandboxRequest(String _id) {
         this._id = _id;

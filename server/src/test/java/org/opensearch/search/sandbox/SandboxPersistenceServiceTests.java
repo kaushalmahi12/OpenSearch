@@ -8,18 +8,16 @@
 
 package org.opensearch.search.sandbox;
 
-import org.opensearch.action.sandbox.GetSandboxResponse;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.recycler.Recycler;
-import org.opensearch.core.action.ActionListener;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -37,7 +35,7 @@ public class SandboxPersistenceServiceTests extends OpenSearchTestCase {
     public static final String ATTRIBUTE_TWO = "attributeTwo";
     public static final String ATTRIBUTE_TWO_VAL = "attributeTwoVal";
 
-    public Sandbox createSandbox(List<String> attributes, List<Double> resourceLimits, String _id) {
+    public static Sandbox createSandbox(List<String> attributes, List<Double> resourceLimits, String _id) {
         List<Sandbox.SelectionAttribute> selectionAttributesList = new ArrayList<>();
         for (int i = 0; i < attributes.size()/2; i++) {
             selectionAttributesList.add(new Sandbox.SelectionAttribute(attributes.get(i*2), attributes.get(i*2 + 1)));
@@ -71,26 +69,6 @@ public class SandboxPersistenceServiceTests extends OpenSearchTestCase {
         return clusterState;
     }
 
-    public void compareSandboxes(List<Sandbox> listOne, List<Sandbox> listTwo) {
-        assertEquals(listOne.size(), listTwo.size());
-        for (int i = 0; i < listOne.size(); i++) {
-            Sandbox responseSandbox = listOne.get(i);
-            Sandbox otherResponseSandbox = listTwo.get(i);
-            assertEquals(responseSandbox.get_id(), otherResponseSandbox.get_id());
-            assertEquals(responseSandbox.getParentId(), otherResponseSandbox.getParentId());
-            assertEquals(responseSandbox.getPriority(), otherResponseSandbox.getPriority());
-            assertEquals(responseSandbox.getSelectionAttributes().size(), otherResponseSandbox.getSelectionAttributes().size());
-            for (int j = 0; j < responseSandbox.getSelectionAttributes().size()/2; j++) {
-                assertEquals(responseSandbox.getSelectionAttributes().get(j).getAttributeNane(), responseSandbox.getSelectionAttributes().get(j).getAttributeNane());
-                assertEquals(responseSandbox.getSelectionAttributes().get(j).getAttributeValuePrefix(), responseSandbox.getSelectionAttributes().get(j).getAttributeValuePrefix());
-            }
-            assertEquals(responseSandbox.getResourceConsumptionLimits().getCpu().getLow(), otherResponseSandbox.getResourceConsumptionLimits().getCpu().getLow(), 0);
-            assertEquals(responseSandbox.getResourceConsumptionLimits().getCpu().getHigh(), otherResponseSandbox.getResourceConsumptionLimits().getCpu().getHigh(), 0);
-            assertEquals(responseSandbox.getResourceConsumptionLimits().getJvm().getLow(), otherResponseSandbox.getResourceConsumptionLimits().getJvm().getLow(), 0);
-            assertEquals(responseSandbox.getResourceConsumptionLimits().getJvm().getHigh(), otherResponseSandbox.getResourceConsumptionLimits().getJvm().getHigh(), 0);
-        }
-    }
-
     public void testGetSingleSandbox() {
         ClusterState clusterState = createClusterState();
         List<Sandbox> sb = SandboxPersistenceService.getFromClusterStateMetadata(ID_ONE, clusterState, null);
@@ -117,4 +95,41 @@ public class SandboxPersistenceServiceTests extends OpenSearchTestCase {
         List<Sandbox> res = SandboxPersistenceService.getFromClusterStateMetadata("53271890567", clusterState, null);
         assertEquals(0, res.size());
     }
+
+    public void testDeleteSingleSandbox() throws IOException {
+        ClusterState clusterState = createClusterState();
+        List<Sandbox> oldSandboxes = clusterState.getMetadata().getSandboxes();
+        ClusterState newClusterState = SandboxPersistenceService.deleteNewSandboxObjectInClusterState(ID_TWO, clusterState);
+        List<Sandbox> sandboxes = newClusterState.getMetadata().getSandboxes();
+        assertEquals(1, sandboxes.size());
+        Sandbox sandbox = sandboxes.get(0);
+        Sandbox oldSandbox = oldSandboxes.stream().filter((s)->(s.get_id().equals(ID_ONE))).collect(Collectors.toList()).get(0);
+        assertEquals(ID_ONE, sandbox.get_id());
+
+        // make sure the serialization of sandboxes match
+        BytesStreamOutput out = new BytesStreamOutput();
+        sandbox.writeTo(out);
+        BytesReference streamInput = out.bytes();
+
+        BytesStreamOutput out1 = new BytesStreamOutput();
+        oldSandbox.writeTo(out1);
+        BytesReference streamInput1 = out1.bytes();
+
+        assertEquals(streamInput.toString(), streamInput1.toString());
+    }
+
+    public void testDeleteAllSandboxes()  {
+        ClusterState clusterState = createClusterState();
+        List<Sandbox> oldSandboxes = clusterState.getMetadata().getSandboxes();
+        ClusterState newClusterState = SandboxPersistenceService.deleteNewSandboxObjectInClusterState(null, clusterState);
+        List<Sandbox> sandboxes = newClusterState.getMetadata().getSandboxes();
+        assertEquals(0, sandboxes.size());
+    }
+
+    public void testDeleteNonExistedSandbox()  {
+        ClusterState clusterState = createClusterState();
+        List<Sandbox> oldSandboxes = clusterState.getMetadata().getSandboxes();
+        assertThrows(RuntimeException.class, () -> SandboxPersistenceService.deleteNewSandboxObjectInClusterState("34253647586", clusterState));
+    }
+
  }

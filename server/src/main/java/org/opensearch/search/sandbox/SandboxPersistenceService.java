@@ -184,7 +184,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         });
     }
 
-    private ClusterState deleteNewSandboxObjectInClusterState(final String _id, final ClusterState currentClusterState) {
+    static ClusterState deleteNewSandboxObjectInClusterState(final String _id, final ClusterState currentClusterState) {
         final Metadata metadata = currentClusterState.metadata();
         final List<Sandbox> previousSandboxes = metadata.getSandboxes();
         final List<Sandbox> resultSandboxes;

@@ -18,7 +18,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class GetSandboxResponseTests extends OpenSearchTestCase {
+public class DeleteSandboxResponseTests extends OpenSearchTestCase {
     public static final String ID_ONE = "15026955478";
     public static final String ID_TWO = "150269568770";
     public static final String PARENT_ID = "15050655478";
@@ -58,7 +58,7 @@ public class GetSandboxResponseTests extends OpenSearchTestCase {
         List<String> attributes = List.of(ATTRIBUTE_ONE, ATTRIBUTE_ONE_VAL, ATTRIBUTE_TWO, ATTRIBUTE_TWO_VAL);
         List<Sandbox> list = new ArrayList<>();
         list.add(SandboxPersistenceServiceTests.createSandbox(attributes, resourceLimits, ID_ONE));
-        GetSandboxResponse response = new GetSandboxResponse(list);
+        DeleteSandboxResponse response = new DeleteSandboxResponse(list);
         assertEquals(response.getSandboxes(), list);
 
         // serialize the response
@@ -67,7 +67,7 @@ public class GetSandboxResponseTests extends OpenSearchTestCase {
         StreamInput streamInput = out.bytes().streamInput();
 
         // deserialize the response and check whether each field equals the original list of sandbox
-        GetSandboxResponse otherResponse = new GetSandboxResponse(streamInput);
+        DeleteSandboxResponse otherResponse = new DeleteSandboxResponse(streamInput);
         assertEquals(response.status(), otherResponse.status());
         compareSandboxes(response.getSandboxes(), otherResponse.getSandboxes());
     }
@@ -81,7 +81,7 @@ public class GetSandboxResponseTests extends OpenSearchTestCase {
         resourceLimits = List.of(THIRTY, SIXTY, FIFTY, SIXTY);
         attributes = List.of(ATTRIBUTE_ONE, ATTRIBUTE_ONE_VAL);
         list.add(SandboxPersistenceServiceTests.createSandbox(attributes, resourceLimits, ID_TWO));
-        GetSandboxResponse response = new GetSandboxResponse(list);
+        DeleteSandboxResponse response = new DeleteSandboxResponse(list);
         assertEquals(response.getSandboxes(), list);
 
         // serialize the response
@@ -90,7 +90,7 @@ public class GetSandboxResponseTests extends OpenSearchTestCase {
         StreamInput streamInput = out.bytes().streamInput();
 
         // deserialize the response and check whether each field equals the original list of sandbox
-        GetSandboxResponse otherResponse = new GetSandboxResponse(streamInput);
+        DeleteSandboxResponse otherResponse = new DeleteSandboxResponse(streamInput);
         assertEquals(2, otherResponse.getSandboxes().size());
         assertEquals(response.status(), otherResponse.status());
         compareSandboxes(response.getSandboxes(), otherResponse.getSandboxes());

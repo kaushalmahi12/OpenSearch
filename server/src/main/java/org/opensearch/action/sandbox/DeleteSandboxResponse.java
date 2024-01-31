@@ -40,10 +40,7 @@ public class DeleteSandboxResponse extends ActionResponse implements ToXContent,
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        // sandbox.writeTo(out);
-        for (Sandbox s: sandboxes) {
-            System.out.println(s.get_id());
-        }
+        out.writeList(sandboxes);
     }
 
     @Override
@@ -65,5 +62,9 @@ public class DeleteSandboxResponse extends ActionResponse implements ToXContent,
     @Override
     public RestStatus status() {
         return restStatus;
+    }
+
+    public List<Sandbox> getSandboxes() {
+        return sandboxes;
     }
 }

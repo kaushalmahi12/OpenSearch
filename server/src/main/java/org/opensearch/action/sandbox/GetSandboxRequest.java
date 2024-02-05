@@ -47,7 +47,7 @@ public class GetSandboxRequest extends ActionRequest implements Writeable.Reader
     }
 
     public static GetSandboxRequest fromXContent(XContentParser parser) throws IOException {
-        Sandbox sandbox = Sandbox.Builder.fromXContent(parser);
+        Sandbox sandbox = Sandbox.Builder.fromXContent(parser, false);
         return new GetSandboxRequest(sandbox);
     }
 

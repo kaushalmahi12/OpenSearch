@@ -61,6 +61,8 @@ import org.opensearch.action.sandbox.DeleteSandboxRequest;
 import org.opensearch.action.sandbox.DeleteSandboxResponse;
 import org.opensearch.action.sandbox.GetSandboxRequest;
 import org.opensearch.action.sandbox.GetSandboxResponse;
+import org.opensearch.action.sandbox.UpdateSandboxRequest;
+import org.opensearch.action.sandbox.UpdateSandboxResponse;
 import org.opensearch.action.search.ClearScrollRequest;
 import org.opensearch.action.search.ClearScrollRequestBuilder;
 import org.opensearch.action.search.ClearScrollResponse;
@@ -510,4 +512,10 @@ public interface Client extends OpenSearchClient, Releasable {
      * @param listener
      */
     void deleteSandbox(DeleteSandboxRequest request, ActionListener<DeleteSandboxResponse> listener);
+
+    /**
+     * updates the @Link Sandbox object
+     * @param listener
+     */
+    void updateSandbox(UpdateSandboxRequest request, ActionListener<UpdateSandboxResponse> listener);
 }

@@ -43,7 +43,7 @@ public class DeleteSandboxRequest extends ActionRequest implements Writeable.Rea
     }
 
     public static DeleteSandboxRequest fromXContent(XContentParser parser) throws IOException {
-        Sandbox sandbox = Sandbox.Builder.fromXContent(parser);
+        Sandbox sandbox = Sandbox.Builder.fromXContent(parser, false);
         return new DeleteSandboxRequest(sandbox);
     }
 

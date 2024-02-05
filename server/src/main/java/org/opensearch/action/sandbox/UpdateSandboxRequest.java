@@ -23,19 +23,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Request class for CreateSandbox action
+ * Request class for UpdateSandbox action
  */
-public class CreateSandboxRequest extends ActionRequest implements Writeable.Reader<CreateSandboxRequest> {
+public class UpdateSandboxRequest extends ActionRequest implements Writeable.Reader<UpdateSandboxRequest> {
+    String _id;
     String parentSandboxId;
     Integer priority;
     ResourceConsumptionLimits resourceConsumptionLimits;
     List<SelectionAttribute> selectionAttributes;
     List<String> tags;
-    public CreateSandboxRequest() {
-//        tags = new ArrayList<>();
+    public UpdateSandboxRequest(String _id) {
+        this._id = _id;
     }
 
-    public CreateSandboxRequest(Sandbox sandbox) {
+    public UpdateSandboxRequest(Sandbox sandbox) {
+        this._id = sandbox.get_id();
         this.parentSandboxId = sandbox.getParentId();
         this.resourceConsumptionLimits = sandbox.getResourceConsumptionLimits();
         this.selectionAttributes = sandbox.getSelectionAttributes();
@@ -43,10 +45,10 @@ public class CreateSandboxRequest extends ActionRequest implements Writeable.Rea
         this.priority = sandbox.getPriority();
     }
 
-    public CreateSandboxRequest(StreamInput in) throws IOException {
+    public UpdateSandboxRequest(StreamInput in) throws IOException {
         super(in);
         parentSandboxId = in.readOptionalString();
-        priority = in.readVInt();
+        priority = in.readOptionalVInt();
         resourceConsumptionLimits = new ResourceConsumptionLimits(in);
         selectionAttributes = in.readList(SelectionAttribute::new);
         int tagsLength = in.readVInt();
@@ -57,13 +59,13 @@ public class CreateSandboxRequest extends ActionRequest implements Writeable.Rea
     }
 
     @Override
-    public CreateSandboxRequest read(StreamInput in) throws IOException {
-        return new CreateSandboxRequest(in);
+    public UpdateSandboxRequest read(StreamInput in) throws IOException {
+        return new UpdateSandboxRequest(in);
     }
 
-    public static CreateSandboxRequest fromXContent(XContentParser parser) throws IOException {
-        Sandbox sandbox = Sandbox.Builder.fromXContent(parser, false);
-        return new CreateSandboxRequest(sandbox);
+    public static UpdateSandboxRequest fromXContent(XContentParser parser) throws IOException {
+        Sandbox sandbox = Sandbox.Builder.fromXContent(parser, true);
+        return new UpdateSandboxRequest(sandbox);
     }
 
     @Override
@@ -114,6 +116,23 @@ public class CreateSandboxRequest extends ActionRequest implements Writeable.Rea
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        Sandbox.writeToOutputStream(out, parentSandboxId, priority, resourceConsumptionLimits, selectionAttributes, tags);
+        out.writeString(_id);
+        out.writeOptionalString(parentSandboxId);
+        out.writeOptionalVInt(priority);
+        resourceConsumptionLimits.writeTo(out); ///
+        out.writeList(selectionAttributes); ///
+        out.writeVInt(tags.size());
+        for (String tag: tags) {
+            out.writeString(tag);
+        }
+        //Sandbox.writeToOutputStream(out, parentSandboxId, priority, resourceConsumptionLimits, selectionAttributes, tags);
+    }
+
+    public String get_id() {
+        return _id;
+    }
+
+    public void set_id(String _id) {
+        this._id = _id;
     }
 }

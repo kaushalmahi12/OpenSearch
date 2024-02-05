@@ -61,6 +61,16 @@ public class Sandbox implements ToXContentObject, Writeable {
         this.tags = tags;
     }
 
+    private Sandbox(String _id, Integer priority, String parentId, List<SelectionAttribute> selectionAttributes,
+                    ResourceConsumptionLimits resourceConsumptionLimits, List<String> tags, boolean updateRequest) {
+        this._id = _id;
+        this.parentId = parentId;
+        this.priority = priority;
+        this.selectionAttributes = selectionAttributes;
+        this.resourceConsumptionLimits = resourceConsumptionLimits;
+        this.tags = tags;
+    }
+
     public Sandbox(StreamInput in) throws IOException {
         _id = in.readString();
         parentId = in.readOptionalString();
@@ -110,7 +120,7 @@ public class Sandbox implements ToXContentObject, Writeable {
             tags = new ArrayList<>();
         }
 
-        public static Sandbox fromXContent(XContentParser parser) throws IOException {
+        public static Sandbox fromXContent(XContentParser parser, boolean updateRequest) throws IOException {
 
             while (parser.currentToken() != XContentParser.Token.START_OBJECT) {
                 parser.nextToken();
@@ -160,7 +170,7 @@ public class Sandbox implements ToXContentObject, Writeable {
                     }
                 }
             }
-            return builder.build();
+            return builder.build(updateRequest);
         }
 
         public Builder id(String _id) {
@@ -193,15 +203,15 @@ public class Sandbox implements ToXContentObject, Writeable {
             return this;
         }
 
-        public Sandbox build() {
-            // generate new _id if needed
-            if (_id == null) {
+        public Sandbox build(boolean updateRequest) {
+            // generate new _id if needed (in create api call)
+            if (!updateRequest) {
                 _id = String.valueOf(Objects.hash(priority, selectionAttributes, resourceConsumptionLimits, tags));
+                return new Sandbox(_id, priority, parentId, selectionAttributes, resourceConsumptionLimits, tags);
+            } else {
+                return new Sandbox(_id, priority, parentId, selectionAttributes, resourceConsumptionLimits, tags, true);
             }
-            return new Sandbox(_id, priority, parentId, selectionAttributes, resourceConsumptionLimits, tags);
         }
-
-
     }
 
     @Override
@@ -555,5 +565,9 @@ public class Sandbox implements ToXContentObject, Writeable {
             if (overshadows) break;
         }
         return overshadows;
+    }
+
+    public void setPriority(Integer priority) {
+        this.priority = priority;
     }
 }

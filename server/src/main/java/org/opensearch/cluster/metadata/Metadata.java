@@ -1845,7 +1845,7 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
                 } else if (token == XContentParser.Token.START_ARRAY) {
                     List<Sandbox> sandboxes1 = new ArrayList<>();
                     while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
-                        Sandbox sandbox = Sandbox.Builder.fromXContent(parser);
+                        Sandbox sandbox = Sandbox.Builder.fromXContent(parser, false);
                         sandboxes1.add(sandbox);
                     }
                     builder.sandboxes(sandboxes1);

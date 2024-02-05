@@ -43,7 +43,7 @@ public class TransportCreateSandboxAction extends HandledTransportAction<CreateS
                     .tags(request.getTags())
             .parentId(request.getParentSandboxId())
             .priority(request.getPriority())
-            .build();
+            .build(false);
         threadPool.executor(ThreadPool.Names.GENERIC).execute(
             () ->
                 sandboxPersistenceService.persist(sandbox, listener)

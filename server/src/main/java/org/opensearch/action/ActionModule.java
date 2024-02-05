@@ -254,9 +254,11 @@ import org.opensearch.action.main.TransportMainAction;
 import org.opensearch.action.sandbox.CreateSandboxAction;
 import org.opensearch.action.sandbox.DeleteSandboxAction;
 import org.opensearch.action.sandbox.GetSandboxAction;
+import org.opensearch.action.sandbox.UpdateSandboxAction;
 import org.opensearch.action.sandbox.TransportCreateSandboxAction;
 import org.opensearch.action.sandbox.TransportDeleteSandboxAction;
 import org.opensearch.action.sandbox.TransportGetSandboxAction;
+import org.opensearch.action.sandbox.TransportUpdateSandboxAction;
 import org.opensearch.action.search.ClearScrollAction;
 import org.opensearch.action.search.CreatePitAction;
 import org.opensearch.action.search.DeletePitAction;
@@ -454,6 +456,7 @@ import org.opensearch.rest.action.ingest.RestSimulatePipelineAction;
 import org.opensearch.rest.action.sandbox.RestCreateSandboxAction;
 import org.opensearch.rest.action.sandbox.RestDeleteSandboxAction;
 import org.opensearch.rest.action.sandbox.RestGetSandboxAction;
+import org.opensearch.rest.action.sandbox.RestUpdateSandboxAction;
 import org.opensearch.rest.action.search.RestClearScrollAction;
 import org.opensearch.rest.action.search.RestCountAction;
 import org.opensearch.rest.action.search.RestCreatePitAction;
@@ -775,6 +778,7 @@ public class ActionModule extends AbstractModule {
         actions.register(CreateSandboxAction.INSTANCE, TransportCreateSandboxAction.class);
         actions.register(DeleteSandboxAction.INSTANCE, TransportDeleteSandboxAction.class);
         actions.register(GetSandboxAction.INSTANCE, TransportGetSandboxAction.class);
+        actions.register(UpdateSandboxAction.INSTANCE, TransportUpdateSandboxAction.class);
 
         return unmodifiableMap(actions.getRegistry());
     }
@@ -969,6 +973,7 @@ public class ActionModule extends AbstractModule {
         registerHandler.accept(new RestCreateSandboxAction());
         registerHandler.accept(new RestDeleteSandboxAction());
         registerHandler.accept(new RestGetSandboxAction());
+        registerHandler.accept(new RestUpdateSandboxAction());
 
         // Extensions API
         if (FeatureFlags.isEnabled(FeatureFlags.EXTENSIONS)) {

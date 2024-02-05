@@ -10,10 +10,7 @@ package org.opensearch.search.sandbox;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.sandbox.CreateSandboxResponse;
-import org.opensearch.action.sandbox.DeleteSandboxResponse;
-import org.opensearch.action.sandbox.GetSandboxRequest;
-import org.opensearch.action.sandbox.GetSandboxResponse;
+import org.opensearch.action.sandbox.*;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateUpdateTask;
 import org.opensearch.cluster.metadata.Metadata;
@@ -29,9 +26,7 @@ import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.Task;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -44,6 +39,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
     private final ClusterService clusterService;
     private static final String SOURCE = "sandbox-persistence-service";
     private static final String CREATE_SANDBOX_THROTTLING_KEY = "create-sandbox";
+    private static final String UPDATE_SANDBOX_THROTTLING_KEY = "update-sandbox";
     private static final String DELETE_SANDBOX_THROTTLING_KEY = "delete-sandbox";
     private static final String SANDBOX_COUNT_SETTING_NAME = "node.sandbox.max_count";
 
@@ -58,6 +54,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         Setting.Property.NodeScope
     );
     final ClusterManagerTaskThrottler.ThrottlingKey createSandboxThrottlingKey;
+    final ClusterManagerTaskThrottler.ThrottlingKey updateSandboxThrottlingKey;
     final ClusterManagerTaskThrottler.ThrottlingKey deleteSandboxThrottlingKey;
 
     @Inject
@@ -67,6 +64,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         this.clusterService = clusterService;
         this.createSandboxThrottlingKey = clusterService.registerClusterManagerTask(CREATE_SANDBOX_THROTTLING_KEY, true);
         this.deleteSandboxThrottlingKey = clusterService.registerClusterManagerTask(DELETE_SANDBOX_THROTTLING_KEY, true);
+        this.updateSandboxThrottlingKey = clusterService.registerClusterManagerTask(UPDATE_SANDBOX_THROTTLING_KEY, true);
         maxSandboxCount = MAX_SANDBOX_COUNT.get(settings);
         clusterSettings.addSettingsUpdateConsumer(MAX_SANDBOX_COUNT, this::setMaxSandboxCount);
         inflightCreateSandboxRequestCount = new AtomicInteger();
@@ -83,7 +81,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         persistInClusterStateMetadata(sandbox, (ActionListener<CreateSandboxResponse>) listener);
     }
 
-     void persistInClusterStateMetadata(Sandbox sandbox, ActionListener<CreateSandboxResponse> listener) {
+    void persistInClusterStateMetadata(Sandbox sandbox, ActionListener<CreateSandboxResponse> listener) {
         clusterService.submitStateUpdateTask(SOURCE, new ClusterStateUpdateTask(Priority.URGENT) {
             @Override
             public ClusterState execute(ClusterState currentState) throws Exception {
@@ -143,6 +141,112 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
 
     private boolean isAlreadyCoveredInExistingOnes(final Sandbox sandbox, final List<Sandbox> existingSandboxes) {
         return existingSandboxes.stream().anyMatch(sandbox1 -> sandbox1.hasOvershadowingSelectionAttribute(sandbox));
+    }
+
+    public <U extends ActionResponse> void update(Sandbox sandbox, ActionListener<U> listener) {
+        String _id = sandbox.get_id();
+        ClusterState currentState = clusterService.state();
+        List<Sandbox> currentSandboxes = currentState.getMetadata().getSandboxes();
+        List<Sandbox> targetSandboxList = currentSandboxes.stream()
+            .filter((sb)->(sb.get_id().equals(_id)))
+            .collect(Collectors.toList());
+        if (targetSandboxList.isEmpty()) {
+            logger.warn("No sandbox exists with the provided _id: {}", _id);
+            Exception e = new RuntimeException(String.format("No sandbox exists with the provided _id: %s", _id));
+            UpdateSandboxResponse response = new UpdateSandboxResponse();
+            response.setRestStatus(RestStatus.NOT_FOUND);
+            listener.onFailure(e);
+            return;
+        }
+        Sandbox targetSandbox = targetSandboxList.get(0);
+
+        // build the sandbox with updated fields
+        Integer priority = sandbox.priority == null? targetSandbox.getPriority() : sandbox.getPriority();
+        String parentId = sandbox.parentId == null? targetSandbox.getParentId():sandbox.getParentId();
+        List<Sandbox.SelectionAttribute> selectionAttributes = new ArrayList<>();
+        if (sandbox.getSelectionAttributes() == null || sandbox.getSelectionAttributes().isEmpty()) {
+            selectionAttributes = targetSandbox.getSelectionAttributes();
+        } else {
+            Map<String, Sandbox.SelectionAttribute> attributeMap = new HashMap<>();
+            targetSandbox.getSelectionAttributes()
+                .forEach(attribute -> attributeMap.put(attribute.getAttributeNane(), attribute));
+            sandbox.getSelectionAttributes()
+                .forEach(attribute -> attributeMap.put(attribute.getAttributeNane(), attribute));
+            selectionAttributes.addAll(attributeMap.values());
+        }
+
+        Sandbox.ResourceConsumptionLimits resourceConsumptionLimits;
+        if (sandbox.getResourceConsumptionLimits() == null) {
+            resourceConsumptionLimits = targetSandbox.getResourceConsumptionLimits();
+        } else {
+            Sandbox.SystemResource cpu = targetSandbox.getResourceConsumptionLimits().getCpu();
+            Sandbox.SystemResource jvm = targetSandbox.getResourceConsumptionLimits().getJvm();
+            if (sandbox.getResourceConsumptionLimits().getCpu() != null) {
+                cpu = Sandbox.SystemResource.builder().name("cpu")
+                    .high(sandbox.getResourceConsumptionLimits().getCpu().getHigh())
+                    .low(sandbox.getResourceConsumptionLimits().getCpu().getLow())
+                    .build();
+            }
+            if (sandbox.getResourceConsumptionLimits().getJvm() != null) {
+                jvm = Sandbox.SystemResource.builder().name("jvm")
+                    .high(sandbox.getResourceConsumptionLimits().getJvm().getHigh())
+                    .low(sandbox.getResourceConsumptionLimits().getJvm().getLow())
+                    .build();
+            }
+            resourceConsumptionLimits = new Sandbox.ResourceConsumptionLimits(jvm, cpu);
+        }
+
+        Sandbox updatedSandbox = Sandbox
+            .builder()
+            .id(_id)
+            .selectionAttributes(selectionAttributes)
+            .resourceConsumptionLimit(resourceConsumptionLimits)
+            .tags(targetSandbox.getTags())
+            .parentId(parentId)
+            .priority(priority)
+            .build(true);
+
+        updateInClusterStateMetadata(targetSandbox, updatedSandbox, (ActionListener<UpdateSandboxResponse>) listener);
+    }
+
+    void updateInClusterStateMetadata(Sandbox currentSandbox, Sandbox updatedSandbox, ActionListener<UpdateSandboxResponse> listener) {
+        clusterService.submitStateUpdateTask(SOURCE, new ClusterStateUpdateTask(Priority.URGENT) {
+            @Override
+            public ClusterState execute(ClusterState currentState) {
+                return updateSandboxObjectInClusterState(currentSandbox, updatedSandbox, currentState);
+            }
+
+            @Override
+            public ClusterManagerTaskThrottler.ThrottlingKey getClusterManagerThrottlingKey() {
+                return updateSandboxThrottlingKey;
+            }
+
+            @Override
+            public void onFailure(String source, Exception e) {
+                logger.warn("failed to update Sandbox object due to error: {}, for source: {}", e.getMessage(), source);
+                UpdateSandboxResponse response = new UpdateSandboxResponse();
+                response.setRestStatus(RestStatus.FAILED_DEPENDENCY);
+                listener.onFailure(e);
+            }
+
+            @Override
+            public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
+                UpdateSandboxResponse response = new UpdateSandboxResponse(updatedSandbox);
+                response.setRestStatus(RestStatus.OK);
+                listener.onResponse(response);
+            }
+        });
+    }
+
+    public ClusterState updateSandboxObjectInClusterState(Sandbox currentSandbox, Sandbox updatedSandbox, ClusterState currentState) {
+        final Metadata metadata = currentState.metadata();
+        List<Sandbox> currentSandboxes = currentState.getMetadata().getSandboxes();
+        currentSandboxes.remove(currentSandbox);
+        currentSandboxes.add(updatedSandbox);
+        return ClusterState.builder(currentState)
+            .metadata(
+                Metadata.builder(metadata).sandboxes(currentSandboxes).build()
+            ).build();
     }
 
     public <U extends ActionResponse> void delete(String _id, ActionListener<U> listener) {
@@ -237,5 +341,4 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         }
         return resultSandboxes;
     }
-
 }

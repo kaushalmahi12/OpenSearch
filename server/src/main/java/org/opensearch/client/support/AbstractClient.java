@@ -363,6 +363,9 @@ import org.opensearch.action.sandbox.DeleteSandboxResponse;
 import org.opensearch.action.sandbox.GetSandboxAction;
 import org.opensearch.action.sandbox.GetSandboxRequest;
 import org.opensearch.action.sandbox.GetSandboxResponse;
+import org.opensearch.action.sandbox.UpdateSandboxAction;
+import org.opensearch.action.sandbox.UpdateSandboxRequest;
+import org.opensearch.action.sandbox.UpdateSandboxResponse;
 import org.opensearch.action.search.ClearScrollAction;
 import org.opensearch.action.search.ClearScrollRequest;
 import org.opensearch.action.search.ClearScrollRequestBuilder;
@@ -2111,5 +2114,10 @@ public abstract class AbstractClient implements Client {
     @Override
     public void deleteSandbox(DeleteSandboxRequest request, ActionListener<DeleteSandboxResponse> listener) {
         execute(DeleteSandboxAction.INSTANCE, request, listener);
+    }
+
+    @Override
+    public void updateSandbox(UpdateSandboxRequest request, ActionListener<UpdateSandboxResponse> listener) {
+        execute(UpdateSandboxAction.INSTANCE, request, listener);
     }
 }

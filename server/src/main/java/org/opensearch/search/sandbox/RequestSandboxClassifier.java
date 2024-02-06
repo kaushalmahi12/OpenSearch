@@ -8,11 +8,32 @@
 
 package org.opensearch.search.sandbox;
 
+import org.opensearch.common.UserPrincipleExtractor;
+import org.opensearch.tasks.Task;
+
 import java.util.List;
 
 /**
- * This interface is responsible for classifying incoming request into Sandboxes based on matching attributes in Sandbox and Request
+ * This class is mainly used to classify co-ordinator search/multi-search reqyests into  sandboxes
  */
-public interface RequestSandboxClassifier<T> {
-    public List<Sandbox> classify(T request, List<Sandbox> availableSandboxes);
+public class RequestSandboxClassifier {
+
+    private final UserPrincipleExtractor userPrincipleExtractor;
+
+    public RequestSandboxClassifier(UserPrincipleExtractor userPrincipleExtractor) {
+        this.userPrincipleExtractor = userPrincipleExtractor;
+    }
+
+    /**
+     *
+     * @param request is a coordinator request which
+     * @return List of matching sandboxes based on user firing the request
+     */
+    public Sandbox classify(final Task task, List<Sandbox> availableSandboxes) {
+        // TODO: maybe we don;t need the request to get user related info
+        String user = userPrincipleExtractor.getUserPrincipleFor(task);
+
+        return null;
+    }
+
 }

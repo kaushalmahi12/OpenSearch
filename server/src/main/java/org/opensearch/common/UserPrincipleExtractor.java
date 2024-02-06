@@ -8,14 +8,15 @@
 
 package org.opensearch.common;
 
-import org.opensearch.action.search.SearchRequest;
+
+import org.opensearch.tasks.Task;
 
 /**
  * This class is used to extract the user info from propagated from security layer
  */
 public class UserPrincipleExtractor {
     // TODO: Add logic to extract the user principle per request for both co-ordinator request and shard level requests
-    public String getUserPrincipleFor(SearchRequest request) {
+    public String getUserPrincipleFor(final Task task) {
         return null;
     }
 }

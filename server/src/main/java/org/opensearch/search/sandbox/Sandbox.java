@@ -36,6 +36,7 @@ public class Sandbox implements ToXContentObject, Writeable {
     // Defines the priority for sandbox selection criteria in face of resource contention
     Integer priority;
     String parentId;
+    // TODO: Change the schema to Map<String, List<String>>
     List<SelectionAttribute> selectionAttributes;
     ResourceConsumptionLimits resourceConsumptionLimits;
     // This field will help giving meaningful names to sandbox object which later can be used to delete/retrieve objects
@@ -228,14 +229,14 @@ public class Sandbox implements ToXContentObject, Writeable {
      */
     public static class SelectionAttribute implements ToXContent, Writeable, Writeable.Reader<SelectionAttribute> {
         private final String attributeNane;
-        private final String attributeValuePrefix;
+        private final List<String> attributeValuePrefixes;
 
         public SelectionAttribute(StreamInput in) throws IOException {
             attributeNane = in.readString();
-            attributeValuePrefix = in.readString();
+            attributeValuePrefixes = in.readStringList();
         }
 
-        public SelectionAttribute(String attributeNane, String attributeValuePrefix) {
+        public SelectionAttribute(String attributeNane, List<String> attributeValuePrefix) {
             Objects.requireNonNull(attributeNane, "selection attribute name can't be null for sandbox");
             Objects.requireNonNull(attributeValuePrefix, "selection value can't be null for sandbox");
 
@@ -243,7 +244,7 @@ public class Sandbox implements ToXContentObject, Writeable {
                 throw new IllegalArgumentException("sandbox selection attribute value length should be greater than 1");
             }
             this.attributeNane = attributeNane;
-            this.attributeValuePrefix = attributeValuePrefix;
+            this.attributeValuePrefixes = attributeValuePrefix;
         }
 
         /**
@@ -251,7 +252,8 @@ public class Sandbox implements ToXContentObject, Writeable {
          */
         public static class Builder {
             String attributeName;
-            String attributeRegexVal;
+            List<String> attributeRegexVal;
+
             public Builder() {}
 
             Builder attributeName(String attributeName) {
@@ -259,7 +261,7 @@ public class Sandbox implements ToXContentObject, Writeable {
                 return this;
             }
 
-            Builder attributeRegexVal(String attributeRegexVal) {
+            Builder attributeRegexVal(List<String> attributeRegexVal) {
                 this.attributeRegexVal = attributeRegexVal;
                 return this;
             }
@@ -275,7 +277,12 @@ public class Sandbox implements ToXContentObject, Writeable {
                         if (currentFieldName.equals(ATTRIBUTE_NAME)) {
                             builder = builder.attributeName(parser.text());
                         } else if (currentFieldName.equals(ATTRIBUTE_VALUE_PREFIX)) {
-                            builder = builder.attributeRegexVal(parser.text());
+                           int attributeValuesLength = parser.intValue();
+                           List<String> attributeVals = new ArrayList<>();
+                           for (int i=0; i< attributeValuesLength; i++) {
+                               attributeVals.add(parser.text());
+                           }
+                           builder = builder.attributeRegexVal(attributeVals);
                         } else {
                             throw new IllegalArgumentException(currentFieldName + " is unrecognized field for Sandbox.SelectionAttribute");
                         }
@@ -293,7 +300,7 @@ public class Sandbox implements ToXContentObject, Writeable {
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
             builder.startObject();
             builder.field(ATTRIBUTE_NAME, attributeNane);
-            builder.field(ATTRIBUTE_VALUE_PREFIX, attributeValuePrefix);
+            builder.field(ATTRIBUTE_VALUE_PREFIX, attributeValuePrefixes);
             builder.endObject();
             return builder;
         }
@@ -301,7 +308,10 @@ public class Sandbox implements ToXContentObject, Writeable {
         @Override
         public void writeTo(StreamOutput out) throws IOException {
             out.writeString(attributeNane);
-            out.writeString(attributeValuePrefix);
+            out.writeVInt(attributeValuePrefixes.size());
+            for (String attributeValuePrefix: attributeValuePrefixes) {
+                out.writeString(attributeValuePrefix);
+            }
         }
 
         @Override
@@ -310,7 +320,10 @@ public class Sandbox implements ToXContentObject, Writeable {
         }
 
         public boolean overshadows(final SelectionAttribute other) {
-            return attributeNane.equals(other.attributeNane) && other.attributeValuePrefix.startsWith(attributeValuePrefix);
+            return attributeNane.equals(other.attributeNane) && other.attributeValuePrefixes.stream()
+                .anyMatch(
+                    val -> attributeValuePrefixes.stream().anyMatch(val::startsWith)
+                );
         }
     }
 
@@ -520,7 +533,13 @@ public class Sandbox implements ToXContentObject, Writeable {
         return priority == newSandboxPriority;
     }
 
+    /**
+     * This method ensures that no attribute of this new sandbox overlaps with any of the existing sandbox
+     * @param sandbox
+     * @return
+     */
     public boolean hasOvershadowingSelectionAttribute(final Sandbox sandbox) {
+        // TODO: this might change
         boolean overshadows = haveSamePriority(sandbox.getPriority());
         for (SelectionAttribute selectionAttribute: selectionAttributes) {
             for (SelectionAttribute otherSelectionAttribute: sandbox.getSelectionAttributes()) {

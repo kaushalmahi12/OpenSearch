@@ -60,6 +60,7 @@ import org.opensearch.script.ScriptService;
 import org.opensearch.search.aggregations.support.AggregationUsageService;
 import org.opensearch.search.backpressure.SearchBackpressureService;
 import org.opensearch.search.pipeline.SearchPipelineService;
+import org.opensearch.search.sandbox.QuerySandboxService;
 import org.opensearch.tasks.TaskCancellationMonitoringService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
@@ -92,6 +93,7 @@ public class NodeService implements Closeable {
     private final AggregationUsageService aggregationUsageService;
     private final SearchBackpressureService searchBackpressureService;
     private final SearchPipelineService searchPipelineService;
+    private final QuerySandboxService querySandboxService;
     private final ClusterService clusterService;
     private final Discovery discovery;
     private final FileCache fileCache;
@@ -120,6 +122,7 @@ public class NodeService implements Closeable {
         AggregationUsageService aggregationUsageService,
         SearchBackpressureService searchBackpressureService,
         SearchPipelineService searchPipelineService,
+        QuerySandboxService querySandboxService,
         FileCache fileCache,
         TaskCancellationMonitoringService taskCancellationMonitoringService,
         ResourceUsageCollectorService resourceUsageCollectorService,
@@ -145,6 +148,7 @@ public class NodeService implements Closeable {
         this.aggregationUsageService = aggregationUsageService;
         this.searchBackpressureService = searchBackpressureService;
         this.searchPipelineService = searchPipelineService;
+        this.querySandboxService = querySandboxService;
         this.clusterService = clusterService;
         this.fileCache = fileCache;
         this.taskCancellationMonitoringService = taskCancellationMonitoringService;
@@ -233,6 +237,7 @@ public class NodeService implements Closeable {
         boolean fileCacheStats,
         boolean taskCancellation,
         boolean searchPipelineStats,
+        boolean querySandboxStats,
         boolean resourceUsageStats,
         boolean segmentReplicationTrackerStats,
         boolean repositoriesStats,
@@ -261,6 +266,7 @@ public class NodeService implements Closeable {
             indexingPressure ? this.indexingPressureService.nodeStats() : null,
             shardIndexingPressure ? this.indexingPressureService.shardStats(indices) : null,
             searchBackpressure ? this.searchBackpressureService.nodeStats() : null,
+            querySandboxStats ? this.querySandboxService.stats() : null,
             clusterManagerThrottling ? this.clusterService.getClusterManagerService().getThrottlingStats() : null,
             weightedRoutingStats ? WeightedRoutingStats.getInstance() : null,
             fileCacheStats && fileCache != null ? fileCache.fileCacheStats() : null,

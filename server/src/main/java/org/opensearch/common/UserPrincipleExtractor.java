@@ -16,7 +16,7 @@ import org.opensearch.tasks.Task;
  */
 public class UserPrincipleExtractor {
     // TODO: Add logic to extract the user principle per request for both co-ordinator request and shard level requests
-    public String getUserPrincipleFor(final Task task) {
+    public static String getUserPrincipleFor(final Task task) {
         return null;
     }
 }

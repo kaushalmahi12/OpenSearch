@@ -18,20 +18,14 @@ import java.util.List;
  */
 public class RequestSandboxClassifier {
 
-    private final UserPrincipleExtractor userPrincipleExtractor;
-
-    public RequestSandboxClassifier(UserPrincipleExtractor userPrincipleExtractor) {
-        this.userPrincipleExtractor = userPrincipleExtractor;
-    }
-
     /**
      *
-     * @param request is a coordinator request which
+     * @param task is a coordinator request task
      * @return List of matching sandboxes based on user firing the request
      */
     public Sandbox classify(final Task task, List<Sandbox> availableSandboxes) {
         // TODO: maybe we don;t need the request to get user related info
-        String user = userPrincipleExtractor.getUserPrincipleFor(task);
+        String user = UserPrincipleExtractor.getUserPrincipleFor(task);
 
         return null;
     }

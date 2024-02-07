@@ -189,6 +189,14 @@ public class SandboxedRequestTrackerService implements TaskManager.TaskEventList
         return cancellableTasks;
     }
 
+    public Map<String, SandboxStats.SandboxStatsHolder> getSandboxLevelStats() {
+        Map<String, SandboxStats.SandboxStatsHolder> sandboxLevelStats = new HashMap<>();
+        for (String sandboxId: sandboxStats.keySet()) {
+            sandboxLevelStats.put(sandboxId, sandboxStats.get(sandboxId).getStats());
+        }
+        return sandboxLevelStats;
+    }
+
     private List<String> getBreachingSandboxIds() {
         return Collections.emptyList();
     }

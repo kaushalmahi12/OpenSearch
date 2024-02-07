@@ -16,6 +16,7 @@ import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class QuerySandboxService extends AbstractLifecycleComponent {
     private static final Logger logger = LogManager.getLogger(QuerySandboxService.class);
@@ -26,6 +27,17 @@ public class QuerySandboxService extends AbstractLifecycleComponent {
     private QuerySandboxServiceSettings sandboxServiceSettings;
     private ThreadPool threadPool;
 
+    public QuerySandboxService(
+        SandboxedRequestTrackerService requestTrackerService,
+        RequestSandboxClassifier requestSandboxClassifier,
+        QuerySandboxServiceSettings sandboxServiceSettings,
+        ThreadPool threadPool
+    ) {
+        this.requestTrackerService = requestTrackerService;
+        this.requestSandboxClassifier = requestSandboxClassifier;
+        this.sandboxServiceSettings = sandboxServiceSettings;
+        this.threadPool = threadPool;
+    }
 
     public void startTracking(final Task task) {
         final Sandbox taskSandbox = requestSandboxClassifier.classify(task, requestTrackerService.getAvailableSandboxes());
@@ -74,4 +86,8 @@ public class QuerySandboxService extends AbstractLifecycleComponent {
 
     @Override
     protected void doClose() throws IOException { }
+
+    public Map<String, SandboxStats.SandboxStatsHolder> stats() {
+        return requestTrackerService.getSandboxLevelStats();
+    }
 }

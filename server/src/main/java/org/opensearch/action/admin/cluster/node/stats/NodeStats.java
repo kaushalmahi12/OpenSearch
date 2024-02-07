@@ -64,6 +64,7 @@ import org.opensearch.script.ScriptCacheStats;
 import org.opensearch.script.ScriptStats;
 import org.opensearch.search.backpressure.stats.SearchBackpressureStats;
 import org.opensearch.search.pipeline.SearchPipelineStats;
+import org.opensearch.search.sandbox.SandboxStats;
 import org.opensearch.tasks.TaskCancellationStats;
 import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.transport.TransportStats;
@@ -258,6 +259,7 @@ public class NodeStats extends BaseNodeResponse implements ToXContentFragment {
         @Nullable IndexingPressureStats indexingPressureStats,
         @Nullable ShardIndexingPressureStats shardIndexingPressureStats,
         @Nullable SearchBackpressureStats searchBackpressureStats,
+        @Nullable Map<String, SandboxStats.SandboxStatsHolder> sandboxLevelStats,
         @Nullable ClusterManagerThrottlingStats clusterManagerThrottlingStats,
         @Nullable WeightedRoutingStats weightedRoutingStats,
         @Nullable FileCacheStats fileCacheStats,

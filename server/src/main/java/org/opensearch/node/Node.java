@@ -218,6 +218,10 @@ import org.opensearch.search.backpressure.settings.SearchBackpressureSettings;
 import org.opensearch.search.fetch.FetchPhase;
 import org.opensearch.search.pipeline.SearchPipelineService;
 import org.opensearch.search.query.QueryPhase;
+import org.opensearch.search.sandbox.QuerySandboxService;
+import org.opensearch.search.sandbox.QuerySandboxServiceSettings;
+import org.opensearch.search.sandbox.RequestSandboxClassifier;
+import org.opensearch.search.sandbox.SandboxedRequestTrackerService;
 import org.opensearch.snapshots.InternalSnapshotsInfoService;
 import org.opensearch.snapshots.RestoreService;
 import org.opensearch.snapshots.SnapshotShardsService;
@@ -1027,6 +1031,16 @@ public class Node implements Closeable {
                 transportService.getTaskManager()
             );
 
+            final SandboxedRequestTrackerService sandboxedRequestTrackerService = new SandboxedRequestTrackerService(
+                transportService.getTaskManager(), taskResourceTrackingService, System::nanoTime);
+
+            final RequestSandboxClassifier requestSandboxClassifier = new RequestSandboxClassifier();
+
+            final QuerySandboxService querySandboxService = new QuerySandboxService(
+                sandboxedRequestTrackerService,
+                requestSandboxClassifier, new QuerySandboxServiceSettings(settings)
+                ,threadPool);
+
             final SegmentReplicationStatsTracker segmentReplicationStatsTracker = new SegmentReplicationStatsTracker(indicesService);
             RepositoriesModule repositoriesModule = new RepositoriesModule(
                 this.environment,
@@ -1221,6 +1235,7 @@ public class Node implements Closeable {
                 b.bind(IndexingPressureService.class).toInstance(indexingPressureService);
                 b.bind(TaskResourceTrackingService.class).toInstance(taskResourceTrackingService);
                 b.bind(SearchBackpressureService.class).toInstance(searchBackpressureService);
+                b.bind(QuerySandboxService.class).toInstance(querySandboxService);
                 b.bind(AdmissionControlService.class).toInstance(admissionControlService);
                 b.bind(UsageService.class).toInstance(usageService);
                 b.bind(AggregationUsageService.class).toInstance(searchModule.getValuesSourceRegistry().getUsageService());

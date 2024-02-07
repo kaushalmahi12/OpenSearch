@@ -8,6 +8,12 @@
 
 package org.opensearch.search.sandbox;
 
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.core.xcontent.ToXContentFragment;
+import org.opensearch.core.xcontent.XContentBuilder;
+
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -54,17 +60,38 @@ public class SandboxStats {
     /**
      * This class holds sandbox level stats
      */
-    public static class SandboxStatsHolder {
-        private long completedTasks;
-        private long cancelledTasks;
-        private long runningTasks;
-        private Map<String, Double> resourceUsage;
+    public static class SandboxStatsHolder implements Writeable, ToXContentFragment {
+        private final  long completedTasks;
+        private final long cancelledTasks;
+        private final long runningTasks;
+        private final Map<String, Double> resourceUsage;
 
         public SandboxStatsHolder(long completedTasks, long cancelledTasks, long runningTasks, Map<String, Double> resourceUsage) {
             this.completedTasks = completedTasks;
             this.cancelledTasks = cancelledTasks;
             this.runningTasks = runningTasks;
             this.resourceUsage = resourceUsage;
+        }
+
+        @Override
+        public void writeTo(StreamOutput out) throws IOException {
+            out.writeVLong(completedTasks);
+            out.writeVLong(cancelledTasks);
+            out.writeVLong(runningTasks);
+            out.writeMap(resourceUsage, StreamOutput::writeString, StreamOutput::writeDouble);
+        }
+
+        @Override
+        public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+            builder.field("completed_tasks", completedTasks);
+            builder.field("cancelled_tasks", cancelledTasks);
+            builder.field("running_tasks", runningTasks);
+            builder.startObject("resource_usage");
+            for (Map.Entry<String, Double> resource: resourceUsage.entrySet()) {
+                builder.field(resource.getKey(), resource.getValue());
+            }
+            builder.endObject();
+            return builder;
         }
     }
 

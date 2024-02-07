@@ -8,32 +8,54 @@
 
 package org.opensearch.search.sandbox;
 
+import org.opensearch.core.tasks.resourcetracker.TaskResourceUsage;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskCancellation;
 import org.opensearch.tasks.TaskManager;
+import org.opensearch.tasks.TaskResourceTrackingService;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
 /**
  * This class tracks requests per sandboxes
  */
 public class SandboxedRequestTrackerService implements TaskManager.TaskEventListeners {
+
+    private static final String CPU = "CPU";
+    private static final String JVM_ALLOCATIONS = "JVM_Allocations";
+    private static final int numberOfAvailableProcessors = Runtime.getRuntime().availableProcessors();
+    private static final long totalAvailableJvmMemory = Runtime.getRuntime().totalMemory();
+    private final LongSupplier timeNanosSupplier;
     /**
      * Sandbox ids which are marked for deletion in between the @link SandboxService runs
      */
 
-    private ConcurrentHashMap<String, Set<Task>> tasksPerSandbox;
-    private Map<String, Sandbox> availableSandboxes;
+    private final Map<String, Set<Task>> tasksPerSandbox;
+    private final Map<String, Sandbox> availableSandboxes;
     private List<String> toDeleteSandboxes;
     /**
      * It is used to track the task to sandbox mapping which will be useful to remove it from the @link tasksPerSandbox
      */
-    private ConcurrentHashMap<Long, String> taskToSandboxMapping;
-    private ConcurrentHashMap<String, SandboxStats> sandboxStats;
-    private TaskManager taskManager;
+    private final Map<Long, String> taskToSandboxMapping;
+    private final Map<String, SandboxStats> sandboxStats;
+    private final TaskManager taskManager;
+    private final TaskResourceTrackingService taskResourceTrackingService;
 
+    public SandboxedRequestTrackerService(TaskManager taskManager, TaskResourceTrackingService taskResourceTrackingService,
+                                          LongSupplier timeNanosSupplier) {
+        this.taskManager = taskManager;
+        this.taskResourceTrackingService = taskResourceTrackingService;
+        availableSandboxes = new ConcurrentHashMap<>();
+        tasksPerSandbox = new ConcurrentHashMap<>();
+        toDeleteSandboxes = Collections.synchronizedList(new ArrayList<>());
+        taskToSandboxMapping = new ConcurrentHashMap<>();
+        sandboxStats = new ConcurrentHashMap<>();
+        this.timeNanosSupplier = timeNanosSupplier;
+    }
 
     public boolean startTracking(Task task, Sandbox sandbox) {
         taskToSandboxMapping.put(task.getId(), sandbox.get_id());
@@ -55,7 +77,60 @@ public class SandboxedRequestTrackerService implements TaskManager.TaskEventList
     }
 
     public void updateSandboxResourceUsages() {
-        //TODO: add implementaion later
+        Map<String, Set<Task>> currentTasksPerSandbox = Collections.unmodifiableMap(tasksPerSandbox);
+        for (Map.Entry<String, Set<Task>> sandboxView: currentTasksPerSandbox.entrySet()) {
+            taskResourceTrackingService.refreshResourceStats(sandboxView.getValue().toArray(new Task[0]));
+            long cpuTimeInNanos = 0;
+            long jvmAllocations = 0;
+            AbsoluteResourceUsage sandboxLevelAbsoluteResourceUsage = new AbsoluteResourceUsage(0, 0);
+            for (Task task: sandboxView.getValue()) {
+                AbsoluteResourceUsage taskLevelAbsoluteResourceUsage = calculateAbsoluteResourceUsageFor(task);
+                sandboxLevelAbsoluteResourceUsage = AbsoluteResourceUsage.merge(sandboxLevelAbsoluteResourceUsage, taskLevelAbsoluteResourceUsage);
+            }
+            // convert the usage into percentage
+            sandboxStats
+                .get(sandboxView.getKey())
+                .setResourceUsage(Map.of(
+                    CPU,
+                    sandboxLevelAbsoluteResourceUsage.getAbsoluteCpuUsageInPercentage(),
+                    JVM_ALLOCATIONS,
+                    sandboxLevelAbsoluteResourceUsage.getAbsoluteJvmAllocationsUsageInPercent()
+                ));
+        }
+    }
+
+    private AbsoluteResourceUsage calculateAbsoluteResourceUsageFor(Task task) {
+        TaskResourceUsage taskResourceUsage = task.getTotalResourceStats();
+        long cpuTimeInNanos = taskResourceUsage.getCpuTimeInNanos();
+        long jvmAllocations = taskResourceUsage.getMemoryInBytes();
+        long taskElapsedTime = timeNanosSupplier.getAsLong() - task.getStartTimeNanos();
+        return new AbsoluteResourceUsage(
+            (cpuTimeInNanos * 1.0f) / (taskElapsedTime * numberOfAvailableProcessors) ,
+            ((jvmAllocations * 1.0f) / totalAvailableJvmMemory)
+        );
+    }
+
+    private static class AbsoluteResourceUsage {
+        private final double absoluteCpuUsage;
+        private final double absoluteJvmAllocationsUsage;
+
+        public AbsoluteResourceUsage(double absoluteCpuUsage, double absoluteJvmAllocationsUsage) {
+            this.absoluteCpuUsage = absoluteCpuUsage;
+            this.absoluteJvmAllocationsUsage = absoluteJvmAllocationsUsage;
+        }
+
+        public static AbsoluteResourceUsage merge(AbsoluteResourceUsage a, AbsoluteResourceUsage b) {
+            return new AbsoluteResourceUsage(a.absoluteCpuUsage + b.absoluteCpuUsage,
+                a.absoluteJvmAllocationsUsage + b.absoluteJvmAllocationsUsage);
+        }
+
+        public double getAbsoluteCpuUsageInPercentage() {
+            return absoluteCpuUsage * 100;
+        }
+
+        public double getAbsoluteJvmAllocationsUsageInPercent() {
+            return absoluteJvmAllocationsUsage * 100;
+        }
     }
 
     public void pruneSandboxes() {
@@ -89,18 +164,13 @@ public class SandboxedRequestTrackerService implements TaskManager.TaskEventList
 
     @Override
     public void onTaskCompleted(Task task) {
-        String sandboxId = taskToSandboxMapping.get(task.getId());
-        if (sandboxId == null) {
-            // Sandbox could be deleted
-            if (toDeleteSandboxes.contains(sandboxId)) {
-                return;
-            } else {
-                throw  new IllegalStateException("Sandbox should have been present for this ");
-            }
+        String completedTaskSandboxId = taskToSandboxMapping.get(task.getId());
+        if (toDeleteSandboxes.contains(completedTaskSandboxId)) {
+            return;
         }
-        final SandboxStats sandboxStats1 = sandboxStats.get(sandboxId);
-        sandboxStats1.incrementCompletedTasks();
-        sandboxStats1.decrementRunningTasks();
+        final SandboxStats completedTaskSandboxStats = sandboxStats.get(completedTaskSandboxId);
+        completedTaskSandboxStats.incrementCompletedTasks();
+        completedTaskSandboxStats.decrementRunningTasks();
     }
 
     public void cancelViolatingTasks() {
@@ -120,12 +190,12 @@ public class SandboxedRequestTrackerService implements TaskManager.TaskEventList
     }
 
     private List<String> getBreachingSandboxIds() {
-        return null;
+        return Collections.emptyList();
     }
 
     private List<TaskCancellation> getCancellableTasksFrom(String sandboxId) {
         //TODO: TaskCancellation should have the callback to increment cancellation for this sandbox id
-        return null;
+        return Collections.emptyList();
     }
 
     public List<Sandbox> getAvailableSandboxes() {

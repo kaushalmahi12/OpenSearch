@@ -288,7 +288,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         });
     }
 
-    static ClusterState deleteNewSandboxObjectInClusterState(final String _id, final ClusterState currentClusterState) {
+    ClusterState deleteNewSandboxObjectInClusterState(final String _id, final ClusterState currentClusterState) {
         final Metadata metadata = currentClusterState.metadata();
         final List<Sandbox> previousSandboxes = metadata.getSandboxes();
         final List<Sandbox> resultSandboxes;
@@ -323,13 +323,13 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
             listener.onFailure(e);
             return;
         }
-        List<Sandbox> resultSandboxes = getFromClusterStateMetadata(_id, currentState, (ActionListener<GetSandboxResponse>) listener);
+        List<Sandbox> resultSandboxes = getFromClusterStateMetadata(_id, currentState);
         GetSandboxResponse response = new GetSandboxResponse(resultSandboxes);
         response.setRestStatus(RestStatus.OK);
         listener.onResponse((U) response);
     }
 
-    static List<Sandbox> getFromClusterStateMetadata(String _id, ClusterState currentState, ActionListener<GetSandboxResponse> listener) {
+    List<Sandbox> getFromClusterStateMetadata(String _id, ClusterState currentState) {
         List<Sandbox> currentSandboxes = currentState.getMetadata().getSandboxes();
         List<Sandbox> resultSandboxes = new ArrayList<>();
         if (_id == null || _id.equals("")) {

@@ -26,7 +26,7 @@ public class DeleteSandboxResponseTests extends OpenSearchTestCase {
     public static final double THIRTY = 30.0;
     public static final double FORTY = 40.0;
     public static final double FIFTY = 50.0;
-    public static final double SIXTY = 50.0;
+    public static final double SIXTY = 60.0;
     public static final String ATTRIBUTE_ONE = "attributeOne";
     public static final String ATTRIBUTE_ONE_VAL = "attributeOneVal";
     public static final String ATTRIBUTE_TWO = "attributeTwo";

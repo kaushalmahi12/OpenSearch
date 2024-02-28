@@ -308,6 +308,7 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 DiskThresholdSettings.CLUSTER_ROUTING_ALLOCATION_INCLUDE_RELOCATIONS_SETTING,
                 DiskThresholdSettings.CLUSTER_ROUTING_ALLOCATION_REROUTE_INTERVAL_SETTING,
                 SameShardAllocationDecider.CLUSTER_ROUTING_ALLOCATION_SAME_HOST_SETTING,
+                SandboxPersistenceService.MAX_SANDBOX_COUNT,
                 ShardStateAction.FOLLOW_UP_REROUTE_PRIORITY_SETTING,
                 InternalClusterInfoService.INTERNAL_CLUSTER_INFO_UPDATE_INTERVAL_SETTING,
                 InternalClusterInfoService.INTERNAL_CLUSTER_INFO_TIMEOUT_SETTING,

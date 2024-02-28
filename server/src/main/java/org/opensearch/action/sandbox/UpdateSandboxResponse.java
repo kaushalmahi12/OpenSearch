@@ -56,4 +56,8 @@ public class UpdateSandboxResponse extends ActionResponse implements ToXContent,
     public RestStatus status() {
         return restStatus;
     }
+
+    public Sandbox getSandbox() {
+        return sandbox;
+    }
 }

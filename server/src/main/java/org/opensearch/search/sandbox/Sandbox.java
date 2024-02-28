@@ -355,7 +355,7 @@ public class Sandbox implements ToXContentObject, Writeable {
             }
         }
 
-        SystemResource(StreamInput in) throws  IOException {
+        public SystemResource(StreamInput in) throws  IOException {
             this.low = in.readDouble();
             this.high = in.readDouble();
             this.name = in.readString();

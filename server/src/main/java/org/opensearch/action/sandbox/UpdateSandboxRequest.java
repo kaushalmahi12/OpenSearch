@@ -47,14 +47,28 @@ public class UpdateSandboxRequest extends ActionRequest implements Writeable.Rea
 
     public UpdateSandboxRequest(StreamInput in) throws IOException {
         super(in);
+        _id = in.readString();
         parentSandboxId = in.readOptionalString();
         priority = in.readOptionalVInt();
-        resourceConsumptionLimits = new ResourceConsumptionLimits(in);
-        selectionAttributes = in.readList(SelectionAttribute::new);
-        int tagsLength = in.readVInt();
-        tags = new ArrayList<>(tagsLength);
-        for (int i=0; i<tagsLength; i++) {
-            tags.add(in.readString());
+        Sandbox.SystemResource jvm = null, cpu = null;
+        if (in.readBoolean()) {
+            if (in.readBoolean()) {
+                jvm = new Sandbox.SystemResource(in);
+            }
+            if (in.readBoolean()) {
+                cpu = new Sandbox.SystemResource(in);
+            }
+            resourceConsumptionLimits = new ResourceConsumptionLimits(jvm, cpu);
+        }
+        if (in.readBoolean()) {
+            selectionAttributes = in.readList(SelectionAttribute::new);
+        }
+        if (in.readBoolean()) {
+            int tagsLength = in.readVInt();
+            tags = new ArrayList<>(tagsLength);
+            for (int i=0; i<tagsLength; i++) {
+                tags.add(in.readString());
+            }
         }
     }
 
@@ -119,13 +133,38 @@ public class UpdateSandboxRequest extends ActionRequest implements Writeable.Rea
         out.writeString(_id);
         out.writeOptionalString(parentSandboxId);
         out.writeOptionalVInt(priority);
-        resourceConsumptionLimits.writeTo(out); ///
-        out.writeList(selectionAttributes); ///
-        out.writeVInt(tags.size());
-        for (String tag: tags) {
-            out.writeString(tag);
+        if (resourceConsumptionLimits == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            if (resourceConsumptionLimits.getJvm() == null) {
+                out.writeBoolean(false);
+            } else {
+                out.writeBoolean(true);
+                resourceConsumptionLimits.getJvm().writeTo(out);
+            }
+            if (resourceConsumptionLimits.getCpu() == null) {
+                out.writeBoolean(false);
+            } else {
+                out.writeBoolean(true);
+                resourceConsumptionLimits.getCpu().writeTo(out);
+            }
         }
-        //Sandbox.writeToOutputStream(out, parentSandboxId, priority, resourceConsumptionLimits, selectionAttributes, tags);
+        if (selectionAttributes == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            out.writeList(selectionAttributes);
+        }
+        if (tags == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            out.writeVInt(tags.size());
+            for (String tag: tags) {
+                out.writeString(tag);
+            };
+        }
     }
 
     public String get_id() {

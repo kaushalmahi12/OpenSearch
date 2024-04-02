@@ -46,11 +46,6 @@ public class RestCreateSandboxAction extends BaseRestHandler {
         request.applyContentParser((parser) -> {
             parseRestRequest(createSandboxRequest, parser);
         });
-//        try (XContentParser parser = request.contentParser()) {
-//
-//        } catch (Exception e) {
-//            throw new RuntimeException(e.getMessage(), e);
-//        }
         return channel -> {
             client.createSandbox(createSandboxRequest, new RestStatusToXContentListener<>(channel));
         };
@@ -58,10 +53,9 @@ public class RestCreateSandboxAction extends BaseRestHandler {
 
     private void parseRestRequest(CreateSandboxRequest request, XContentParser parser) throws IOException {
          final CreateSandboxRequest createSandboxRequest = CreateSandboxRequest.fromXContent(parser);
-         request.setPriority(createSandboxRequest.getPriority());
-         request.setParentSandboxId(createSandboxRequest.getParentSandboxId());
-         request.setTags(createSandboxRequest.getTags());
-         request.setSelectionAttributes(createSandboxRequest.getSelectionAttributes());
+         request.setName(createSandboxRequest.getName());
+         request.setSandboxAttributes(createSandboxRequest.getSandboxAttributes());
          request.setResourceConsumptionLimits(createSandboxRequest.getResourceConsumptionLimits());
+         request.setEnforcement(createSandboxRequest.getEnforcement());
     }
 }

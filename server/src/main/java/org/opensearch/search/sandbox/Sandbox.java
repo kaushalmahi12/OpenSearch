@@ -195,16 +195,25 @@ public class Sandbox implements ToXContentObject, Writeable {
 
         public SandboxAttributes(StreamInput in) throws IOException {
             indicesValues = in.readString();
+            isValidAttribute(indicesValues);
         }
 
         public SandboxAttributes(String indicesValues) {
-            //TODO: can it be null?
             Objects.requireNonNull(indicesValues, "Indices value can't be null for sandbox");
-
             if (indicesValues.isEmpty()) {
                 throw new IllegalArgumentException("Indices value length should be greater than 0");
             }
+            isValidAttribute(indicesValues);
             this.indicesValues = indicesValues;
+        }
+
+        private void isValidAttribute(String indicesValues) {
+            if (indicesValues.startsWith("*")) {
+                throw new IllegalArgumentException("Attribute value cannot start with patterns");
+            }
+            if (indicesValues.matches(".*[:, \"+/\\\\|#?<>].*")) {
+                throw new IllegalArgumentException("Attribute value can't contain spaces, commas, quotes, slashes, :, +, |, ?, #, >, or <");
+            }
         }
 
         public String getIndicesValues() {

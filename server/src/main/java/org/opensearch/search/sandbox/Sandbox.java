@@ -31,12 +31,13 @@ public class Sandbox implements ToXContentObject, Writeable {
     SandboxAttributes sandboxAttributes;
     ResourceConsumptionLimits resourceConsumptionLimits;
     String enforcement;
-    public static final String NAME_STRING = "name";
+
+    public static final String ID = "_id";
+    public static final String NAME = "name";
     public static final String RESOURCES = "resources";
     public static final String ATTRIBUTES = "attributes";
-    public static final String ID = "_id";
     public static final String JVM = "jvm";
-    public static final String ENFORCEMENT_STRING = "enforcement";
+    public static final String ENFORCEMENT = "enforcement";
 
     private Sandbox(String _id, String name, SandboxAttributes sandboxAttributes, ResourceConsumptionLimits resourceConsumptionLimits, String enforcement) {
         Objects.requireNonNull(_id, "[_id] field should not be empty for sandbox");
@@ -122,9 +123,9 @@ public class Sandbox implements ToXContentObject, Writeable {
                 } else {
                     if (currentFieldName.equals(ID)) {
                         builder.id(parser.text());
-                    } else if (currentFieldName.equals(NAME_STRING)) {
+                    } else if (currentFieldName.equals(NAME)) {
                         builder.name(parser.text());
-                    } else if (currentFieldName.equals(ENFORCEMENT_STRING)) {
+                    } else if (currentFieldName.equals(ENFORCEMENT)) {
                         builder.enforcement(parser.text());
                     } else if (currentFieldName.equals(ATTRIBUTES)) {
                         SandboxAttributes sandboxAttributes1 = SandboxAttributes.Builder.fromXContent(parser);
@@ -177,11 +178,10 @@ public class Sandbox implements ToXContentObject, Writeable {
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field(ID, _id);
-        builder.field(NAME_STRING, name);
+        builder.field(NAME, name);
         sandboxAttributes.toXContent(builder, params);
         resourceConsumptionLimits.toXContent(builder, params);
-        builder.field(ENFORCEMENT_STRING, enforcement);
+        builder.field(ENFORCEMENT, enforcement);
         builder.endObject();
         return builder;
     }

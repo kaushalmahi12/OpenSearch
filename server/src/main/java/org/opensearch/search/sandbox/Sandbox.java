@@ -26,51 +26,51 @@ import java.util.stream.Collectors;
  * This is the POJO for Sandbox
  */
 public class Sandbox implements ToXContentObject, Writeable {
-    public static final String RESOURCE_CONSUMPTION_LIMITS = "resource_consumption_limits";
-    public static final String TAGS = "tags";
-    public static final String SELECTION_ATTRIBUTES = "selection_attributes";
-    public static final String ID = "_id";
-    public static final String PRIORITY = "priority";
-    public static final String PARENT_ID = "parent_id";
     String _id;
-    // Defines the priority for sandbox selection criteria in face of resource contention
-    Integer priority;
-    String parentId;
-    List<SelectionAttribute> selectionAttributes;
+    String name;
+    SandboxAttributes sandboxAttributes;
     ResourceConsumptionLimits resourceConsumptionLimits;
-    // This field will help giving meaningful names to sandbox object which later can be used to delete/retrieve objects
-    List<String> tags;
-
-    public static final String CPU = "cpu";
+    String enforcement;
+    public static final String NAME_STRING = "name";
+    public static final String RESOURCES = "resources";
+    public static final String ATTRIBUTES = "attributes";
+    public static final String ID = "_id";
     public static final String JVM = "jvm";
-    private static final String ATTRIBUTE_NAME = "attribute_name";
-    private static final String ATTRIBUTE_VALUE_PREFIX = "attribute_value_prefix";
+    public static final String ENFORCEMENT_STRING = "enforcement";
 
-    private Sandbox(String _id, Integer priority, String parentId, List<SelectionAttribute> selectionAttributes,
-                    ResourceConsumptionLimits resourceConsumptionLimits, List<String> tags) {
+    private Sandbox(String _id, String name, SandboxAttributes sandboxAttributes, ResourceConsumptionLimits resourceConsumptionLimits, String enforcement) {
         Objects.requireNonNull(_id, "[_id] field should not be empty for sandbox");
-        Objects.requireNonNull(priority, "[priority] field should not be empty for sandbox");
-        Objects.requireNonNull(selectionAttributes, "[selectionAttributes] field should not be empty for sandbox");
+        Objects.requireNonNull(name, "[name] field should not be empty for sandbox");
+        Objects.requireNonNull(sandboxAttributes, "[selectionAttributes] field should not be empty for sandbox");
         Objects.requireNonNull(resourceConsumptionLimits, "[resourceConsumptionLimits] field should not be empty for sandbox");
+        Objects.requireNonNull(enforcement, "[enforcement] field should not be empty for sandbox");
+        isValidSandbox(name, enforcement);
 
         this._id = _id;
-        this.parentId = parentId;
-        this.priority = priority;
-        this.selectionAttributes = selectionAttributes;
+        this.name = name;
+        this.sandboxAttributes = sandboxAttributes;
         this.resourceConsumptionLimits = resourceConsumptionLimits;
-        this.tags = tags;
+        this.enforcement = enforcement;
     }
 
     public Sandbox(StreamInput in) throws IOException {
         _id = in.readString();
-        parentId = in.readOptionalString();
-        priority = in.readVInt();
+        name = in.readString();
         resourceConsumptionLimits = new ResourceConsumptionLimits(in);
-        selectionAttributes = in.readList(SelectionAttribute::new);
-        int numberOfTags = in.readVInt();
-        tags = new ArrayList<>(numberOfTags);
-        for (int i=0; i<numberOfTags; i++) {
-            tags.add(in.readString());
+        sandboxAttributes = new SandboxAttributes(in);
+        enforcement = in.readString();
+        isValidSandbox(name, enforcement);
+    }
+
+    private void isValidSandbox(String name, String enforcement) {
+        if (name.startsWith("-")||name.startsWith("_")) {
+            throw new IllegalArgumentException("Sandbox name cannot start with '_' or '-'.");
+        }
+        if (name.matches(".*[ ,:\"*+/\\\\|?#><].*")) {
+            throw new IllegalArgumentException("Sandbox names can't contain spaces, commas, quotes, slashes, :, *, +, |, ?, #, >, or <");
+        }
+        if (!enforcement.equals("monitor")) { // we only allow monitor right now
+            throw new IllegalArgumentException("We only support monitor enforcement mode right now");
         }
     }
 
@@ -81,34 +81,27 @@ public class Sandbox implements ToXContentObject, Writeable {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(_id);
-        writeToOutputStream(out, parentId, priority, resourceConsumptionLimits, selectionAttributes, tags);
+        writeToOutputStream(out, name, resourceConsumptionLimits, sandboxAttributes, enforcement);
     }
 
-    public static void writeToOutputStream(StreamOutput out, String parentId, Integer priority, ResourceConsumptionLimits resourceConsumptionLimits, List<SelectionAttribute> selectionAttributes, List<String> tags) throws IOException {
-        out.writeOptionalString(parentId);
-        out.writeVInt(priority);
+    public static void writeToOutputStream(StreamOutput out,String name, ResourceConsumptionLimits resourceConsumptionLimits, SandboxAttributes sandboxAttributes, String enforcement) throws IOException {
+        out.writeString(name);
         resourceConsumptionLimits.writeTo(out);
-        out.writeList(selectionAttributes);
-        out.writeVInt(tags.size());
-        for (String tag: tags) {
-            out.writeString(tag);
-        }
+        sandboxAttributes.writeTo(out);
+        out.writeString(enforcement);
     }
 
     /**
-     * Builder class for @link Sanddbox class
+     * Builder class for @link Sandbox class
      */
     public static class Builder {
         String _id;
-        Integer priority;
-        String parentId;
-        List<SelectionAttribute> selectionAttributes;
+        String name;
+        SandboxAttributes sandboxAttributes;
         ResourceConsumptionLimits resourceConsumptionLimits;
-        List<String> tags;
+        String enforcement;
 
-        Builder() {
-            tags = new ArrayList<>();
-        }
+        Builder() {}
 
         public static Sandbox fromXContent(XContentParser parser) throws IOException {
 
@@ -129,32 +122,16 @@ public class Sandbox implements ToXContentObject, Writeable {
                 } else {
                     if (currentFieldName.equals(ID)) {
                         builder.id(parser.text());
-                    } else if (currentFieldName.equals(PRIORITY)) {
-                        builder.priority(parser.intValue());
-                    } else if (currentFieldName.equals(PARENT_ID)) {
-                        builder.parentId(parser.text());
-                    } else if (currentFieldName.equals(SELECTION_ATTRIBUTES)) {
-
-                        if (token != XContentParser.Token.START_ARRAY) {
-                            throw new IllegalArgumentException(token + " should have been the start of an array token");
-                        }
-                        List<SelectionAttribute> selectionAttributes1 = new ArrayList<>();
-                        while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
-                            SelectionAttribute selectionAttribute = SelectionAttribute.Builder.fromXContent(parser);
-                            selectionAttributes1.add(selectionAttribute);
-                        }
-                        builder.selectionAttributes(selectionAttributes1);
-
-                    } else if (currentFieldName.equals(RESOURCE_CONSUMPTION_LIMITS)) {
+                    } else if (currentFieldName.equals(NAME_STRING)) {
+                        builder.name(parser.text());
+                    } else if (currentFieldName.equals(ENFORCEMENT_STRING)) {
+                        builder.enforcement(parser.text());
+                    } else if (currentFieldName.equals(ATTRIBUTES)) {
+                        SandboxAttributes sandboxAttributes1 = SandboxAttributes.Builder.fromXContent(parser);
+                        builder.sandboxAttributes(sandboxAttributes1);
+                    } else if (currentFieldName.equals(RESOURCES)) {
                         ResourceConsumptionLimits resourceConsumptionLimits1 = ResourceConsumptionLimits.Builder.fromXContent(parser);
                         builder.resourceConsumptionLimit(resourceConsumptionLimits1);
-                    } else if (currentFieldName.equals(TAGS)) {
-                        builder.tags(
-                            parser.list()
-                                .stream()
-                                .map(x -> (String) x)
-                                .collect(Collectors.toList())
-                        );
                     } else {
                         throw new IllegalArgumentException(currentFieldName + " is not part of Sandbox object, malformed Sandbox info");
                     }
@@ -168,18 +145,13 @@ public class Sandbox implements ToXContentObject, Writeable {
             return this;
         }
 
-        public Builder parentId(String parentId) {
-            this.parentId = parentId;
+        public Builder name(String name) {
+            this.name = name;
             return this;
         }
 
-        public Builder priority(int priority) {
-            this.priority = priority;
-            return this;
-        }
-
-        public Builder selectionAttributes(List<SelectionAttribute> selectionAttributes) {
-            this.selectionAttributes = selectionAttributes;
+        public Builder sandboxAttributes(SandboxAttributes sandboxAttributes) {
+            this.sandboxAttributes = sandboxAttributes;
             return this;
         }
 
@@ -188,37 +160,28 @@ public class Sandbox implements ToXContentObject, Writeable {
             return this;
         }
 
-        public Builder tags(List<String> tags) {
-            this.tags = tags;
+        public Builder enforcement(String enforcement) {
+            this.enforcement = enforcement;
             return this;
         }
 
         public Sandbox build() {
             // generate new _id if needed
             if (_id == null) {
-                _id = String.valueOf(Objects.hash(priority, selectionAttributes, resourceConsumptionLimits, tags));
+                _id = String.valueOf(Objects.hash(name, sandboxAttributes, resourceConsumptionLimits, enforcement));
             }
-            return new Sandbox(_id, priority, parentId, selectionAttributes, resourceConsumptionLimits, tags);
+            return new Sandbox(_id, name, sandboxAttributes, resourceConsumptionLimits, enforcement);
         }
-
-
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
         builder.field(ID, _id);
-        builder.field(PRIORITY, priority);
-        if (parentId != null) {
-            builder.field(PARENT_ID, parentId);
-        }
-        builder.startArray(SELECTION_ATTRIBUTES);
-        for (SelectionAttribute selectionAttribute: selectionAttributes) {
-            selectionAttribute.toXContent(builder, params);
-        }
-        builder.endArray();
+        builder.field(NAME_STRING, name);
+        sandboxAttributes.toXContent(builder, params);
         resourceConsumptionLimits.toXContent(builder, params);
-        builder.array(TAGS, tags);
+        builder.field(ENFORCEMENT_STRING, enforcement);
         builder.endObject();
         return builder;
     }
@@ -226,45 +189,41 @@ public class Sandbox implements ToXContentObject, Writeable {
     /**
      * This defines the schema for the attributes which can be used to resolve sandboxes
      */
-    public static class SelectionAttribute implements ToXContent, Writeable, Writeable.Reader<SelectionAttribute> {
-        private final String attributeNane;
-        private final String attributeValuePrefix;
+    public static class SandboxAttributes implements ToXContent, Writeable, Writeable.Reader<SandboxAttributes> {
+        private static final String INDICES_NAME = "indices_name";
+        private final String indicesValues;
 
-        public SelectionAttribute(StreamInput in) throws IOException {
-            attributeNane = in.readString();
-            attributeValuePrefix = in.readString();
+        public SandboxAttributes(StreamInput in) throws IOException {
+            indicesValues = in.readString();
         }
 
-        public SelectionAttribute(String attributeNane, String attributeValuePrefix) {
-            Objects.requireNonNull(attributeNane, "selection attribute name can't be null for sandbox");
-            Objects.requireNonNull(attributeValuePrefix, "selection value can't be null for sandbox");
+        public SandboxAttributes(String indicesValues) {
+            //TODO: can it be null?
+            Objects.requireNonNull(indicesValues, "Indices value can't be null for sandbox");
 
-            if (attributeValuePrefix.isEmpty()) {
-                throw new IllegalArgumentException("sandbox selection attribute value length should be greater than 1");
+            if (indicesValues.isEmpty()) {
+                throw new IllegalArgumentException("Indices value length should be greater than 0");
             }
-            this.attributeNane = attributeNane;
-            this.attributeValuePrefix = attributeValuePrefix;
+            this.indicesValues = indicesValues;
+        }
+
+        public String getIndicesValues() {
+            return indicesValues;
         }
 
         /**
          * Builder for @link SelectionAttribute class
          */
         public static class Builder {
-            String attributeName;
-            String attributeRegexVal;
+            String indicesValues;
             public Builder() {}
 
-            Builder attributeName(String attributeName) {
-                this.attributeName = attributeName;
+            Builder indicesValues(String indicesValues) {
+                this.indicesValues = indicesValues;
                 return this;
             }
 
-            Builder attributeRegexVal(String attributeRegexVal) {
-                this.attributeRegexVal = attributeRegexVal;
-                return this;
-            }
-
-            public static SelectionAttribute fromXContent(XContentParser parser) throws IOException {
+            public static SandboxAttributes fromXContent(XContentParser parser) throws IOException {
                 Builder builder = new Builder();
                 XContentParser.Token token;
                 String currentFieldName = "";
@@ -272,10 +231,8 @@ public class Sandbox implements ToXContentObject, Writeable {
                     if (token == XContentParser.Token.FIELD_NAME) {
                         currentFieldName = parser.currentName();
                     } else if (token.isValue()) {
-                        if (currentFieldName.equals(ATTRIBUTE_NAME)) {
-                            builder = builder.attributeName(parser.text());
-                        } else if (currentFieldName.equals(ATTRIBUTE_VALUE_PREFIX)) {
-                            builder = builder.attributeRegexVal(parser.text());
+                        if (currentFieldName.equals(INDICES_NAME)) {
+                            builder = builder.indicesValues(parser.text());
                         } else {
                             throw new IllegalArgumentException(currentFieldName + " is unrecognized field for Sandbox.SelectionAttribute");
                         }
@@ -284,33 +241,27 @@ public class Sandbox implements ToXContentObject, Writeable {
                 return builder.build();
             }
 
-            SelectionAttribute build() {
-                return new SelectionAttribute(attributeName, attributeRegexVal);
+            SandboxAttributes build() {
+                return new SandboxAttributes(indicesValues);
             }
         }
 
         @Override
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-            builder.startObject();
-            builder.field(ATTRIBUTE_NAME, attributeNane);
-            builder.field(ATTRIBUTE_VALUE_PREFIX, attributeValuePrefix);
+            builder.startObject(ATTRIBUTES);
+            builder.field(INDICES_NAME, indicesValues);
             builder.endObject();
             return builder;
         }
 
         @Override
         public void writeTo(StreamOutput out) throws IOException {
-            out.writeString(attributeNane);
-            out.writeString(attributeValuePrefix);
+            out.writeString(indicesValues);
         }
 
         @Override
-        public SelectionAttribute read(StreamInput in) throws IOException {
-            return new SelectionAttribute(in);
-        }
-
-        public boolean overshadows(final SelectionAttribute other) {
-            return attributeNane.equals(other.attributeNane) && attributeValuePrefix.startsWith(other.attributeValuePrefix);
+        public SandboxAttributes read(StreamInput in) throws IOException {
+            return new SandboxAttributes(in);
         }
     }
 
@@ -318,45 +269,45 @@ public class Sandbox implements ToXContentObject, Writeable {
      * Class to define system resource level thresholds
      */
     public static class SystemResource implements ToXContent, Writeable {
-        static final String LOW = "low";
-        static final String HIGH = "high";
-        double low;
-        double high;
+        static final String ALLOCATION = "allocation";
+        double allocation;
         String name;
 
-        SystemResource(double low, double high, String name) {
-            isValid(low, high);
-            this.low = low;
-            this.high = high;
+        SystemResource(double allocation, String name) {
+            isValid(allocation, name);
+            this.allocation = allocation;
             this.name = name;
         }
 
-        private static void isValid(double low, double high) {
-            if (low > high) {
-                throw new IllegalArgumentException("System resource low limit can't be greater than high.");
+        SystemResource(StreamInput in) throws  IOException {
+            this.allocation = in.readDouble();
+            this.name = in.readString();
+            isValid(allocation, name);
+        }
+
+        private static void isValid(double allocation, String name) {
+            if (allocation < 0 || allocation > 1) {
+                throw new IllegalArgumentException("System resource allocation should be between 0 and 1.");
+            }
+            String str = String.valueOf(allocation);
+            if (str.contains(".") && str.split("\\.")[1].length() > 2) {
+                throw new IllegalArgumentException("System resource allocation should have at most two digits after the decimal point");
+            }
+            if (!name.equals(JVM)) {
+                throw new IllegalArgumentException("We only support resource name to be jvm at the moment");
             }
         }
 
-        SystemResource(StreamInput in) throws  IOException {
-            this.low = in.readDouble();
-            this.high = in.readDouble();
-            this.name = in.readString();
-            isValid(low, high);
-        }
-
-
         @Override
         public void writeTo(StreamOutput out) throws IOException {
-            out.writeDouble(low);
-            out.writeDouble(high);
+            out.writeDouble(allocation);
             out.writeString(name);
         }
 
         @Override
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
             builder.startObject(name);
-            builder.field(LOW, low);
-            builder.field(HIGH, high);
+            builder.field(ALLOCATION, allocation);
             builder.endObject();
             return builder;
         }
@@ -365,14 +316,17 @@ public class Sandbox implements ToXContentObject, Writeable {
             return name;
         }
 
+        public double getAllocation() {
+            return allocation;
+        }
+
         public static Builder builder() {
             return new Builder();
         }
 
         public static class Builder {
             String name;
-            double low;
-            double high;
+            double allocation;
 
             Builder() {
             }
@@ -382,10 +336,7 @@ public class Sandbox implements ToXContentObject, Writeable {
                 return this;
             }
 
-            Builder low(double low) { this.low = low; return this; }
-
-            Builder high(double high) { this.high = high; return this; }
-
+            Builder allocation(double allocation) { this.allocation = allocation; return this; }
 
             public static SystemResource fromXContent(XContentParser parser, String name) throws IOException {
                 Builder builder = new Builder();
@@ -396,10 +347,8 @@ public class Sandbox implements ToXContentObject, Writeable {
                     if (token == XContentParser.Token.FIELD_NAME) {
                         currentFieldName = parser.currentName();
                     } else if (token.isValue()) {
-                        if (currentFieldName.equals(LOW)) {
-                            builder = builder.low(parser.doubleValue());
-                        } else if (currentFieldName.equals(HIGH)) {
-                            builder = builder.high(parser.doubleValue());
+                        if (currentFieldName.equals(ALLOCATION)) {
+                            builder = builder.allocation(parser.doubleValue());
                         } else {
                             throw new IllegalArgumentException(currentFieldName + " is an unexpected field name for SystemResource");
                         }
@@ -409,10 +358,9 @@ public class Sandbox implements ToXContentObject, Writeable {
             }
 
             public SystemResource build() {
-                return new SystemResource(low, high, name);
+                return new SystemResource(allocation, name);
             }
         }
-
     }
 
     /**
@@ -421,42 +369,34 @@ public class Sandbox implements ToXContentObject, Writeable {
     public static class ResourceConsumptionLimits implements ToXContent, Writeable {
         // Allocations in percent w.r.t. total heap
         private final SystemResource jvm;
-        // CPU usage in absolute terms irrespective of cores
-        private final SystemResource cpu;
 
-        public ResourceConsumptionLimits(SystemResource jvmAllocations, SystemResource cpuUsage) {
+        public ResourceConsumptionLimits(SystemResource jvmAllocations) {
             this.jvm = jvmAllocations;
-            this.cpu = cpuUsage;
         }
 
         public ResourceConsumptionLimits(StreamInput in) throws IOException {
             jvm = new SystemResource(in);
-            cpu = new SystemResource(in);
+        }
+
+        public SystemResource getJvm() {
+            return jvm;
         }
 
         @Override
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-            builder.startObject(RESOURCE_CONSUMPTION_LIMITS);
+            builder.startObject(RESOURCES);
             jvm.toXContent(builder, params);
-            cpu.toXContent(builder, params);
             builder.endObject();
             return builder;
         }
 
-
         static class Builder {
             private SystemResource jvm;
-            private SystemResource cpu;
 
             public Builder() {}
 
             Builder jvmAllocations(SystemResource jvmAllocationsLimit) {
                 this.jvm = jvmAllocationsLimit;
-                return this;
-            }
-
-            Builder cpuUsage(SystemResource cpuUsageLimit) {
-                this.cpu = cpuUsageLimit;
                 return this;
             }
 
@@ -469,26 +409,23 @@ public class Sandbox implements ToXContentObject, Writeable {
                         currentFieldName = parser.currentName();
                     } else if (token == XContentParser.Token.START_OBJECT) {
                        SystemResource systemResource = SystemResource.Builder.fromXContent(parser, currentFieldName);
-                       if (systemResource.getName().equals(CPU)) {
-                           builder = builder.cpuUsage(systemResource);
-                       } else if (systemResource.getName().equals(JVM)) {
+                       if (systemResource.getName().equals(JVM)) {
                            builder = builder.jvmAllocations(systemResource);
                        } else {
-                           throw new IllegalArgumentException("unexpected system resource for");
+                           throw new IllegalArgumentException("unexpected system resource");
                        }
                     }
                 }
                 return builder.build();
             }
             ResourceConsumptionLimits build() {
-                return new ResourceConsumptionLimits(jvm, cpu);
+                return new ResourceConsumptionLimits(jvm);
             }
         }
 
         @Override
         public void writeTo(StreamOutput out) throws IOException {
             jvm.writeTo(out);
-            cpu.writeTo(out);
         }
     }
 
@@ -496,37 +433,19 @@ public class Sandbox implements ToXContentObject, Writeable {
         return _id;
     }
 
-    public Integer getPriority() {
-        return priority;
+    public String getName() {
+        return name;
     }
 
-    public String getParentId() {
-        return parentId;
-    }
-
-    public List<SelectionAttribute> getSelectionAttributes() {
-        return selectionAttributes;
+    public SandboxAttributes getSandboxAttributes() {
+        return sandboxAttributes;
     }
 
     public ResourceConsumptionLimits getResourceConsumptionLimits() {
         return resourceConsumptionLimits;
     }
 
-    public List<String> getTags() {
-        return tags;
-    }
-
-    public boolean hasOvershadowingSelectionAttribute(final Sandbox sandbox) {
-        boolean overshadows = true;
-        for (SelectionAttribute selectionAttribute: selectionAttributes) {
-            for (SelectionAttribute otherSelectionAttribute: sandbox.getSelectionAttributes()) {
-                if (!selectionAttribute.overshadows(otherSelectionAttribute)) {
-                    overshadows = false;
-                    break;
-                }
-            }
-            if (overshadows) break;
-        }
-        return overshadows;
+    public String getEnforcement() {
+        return enforcement;
     }
 }

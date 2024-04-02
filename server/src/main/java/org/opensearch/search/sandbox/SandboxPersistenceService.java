@@ -26,8 +26,11 @@ import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.rest.RestStatus;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.DoubleAdder;
 
 /**
  * Persistence Service for Sandbox objects
@@ -41,6 +44,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
     private static final String SANDBOX_COUNT_SETTING_NAME = "node.sandbox.max_count";
 
     private static AtomicInteger inflightCreateSandboxRequestCount;
+    private static DoubleAdder inflightJVMTotal;
     private volatile int maxSandboxCount;
     public static final int DEFAULT_MAX_SANDBOX_COUNT_VALUE = 100;
     public static final Setting<Integer> MAX_SANDBOX_COUNT = Setting.intSetting(
@@ -58,9 +62,10 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
                                      final ClusterSettings clusterSettings) {
         this.clusterService = clusterService;
         this.createSandboxThrottlingKey = clusterService.registerClusterManagerTask(CREATE_SANDBOX_THROTTLING_KEY, true);
-        maxSandboxCount = MAX_SANDBOX_COUNT.get(settings);
+        maxSandboxCount = MAX_SANDBOX_COUNT.get(settings);;
         clusterSettings.addSettingsUpdateConsumer(MAX_SANDBOX_COUNT, this::setMaxSandboxCount);
         inflightCreateSandboxRequestCount = new AtomicInteger();
+        inflightJVMTotal = new DoubleAdder();
     }
 
     public void setMaxSandboxCount(int newMaxSandboxCount) {
@@ -89,6 +94,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
             @Override
             public void onFailure(String source, Exception e) {
                 inflightCreateSandboxRequestCount.decrementAndGet();
+                inflightJVMTotal.add(-sandbox.getResourceConsumptionLimits().getJvm().getAllocation());
                 logger.warn("failed to save Sandbox object due to error: {}, for source: {}", e.getMessage(), source);
                 CreateSandboxResponse response = new CreateSandboxResponse();
                 response.setRestStatus(RestStatus.FAILED_DEPENDENCY);
@@ -98,6 +104,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
             @Override
             public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
                 inflightCreateSandboxRequestCount.decrementAndGet();
+                inflightJVMTotal.add(-sandbox.getResourceConsumptionLimits().getJvm().getAllocation());
                 CreateSandboxResponse response = new CreateSandboxResponse(sandbox);
                 response.setRestStatus(RestStatus.OK);
                 listener.onResponse(response);
@@ -115,16 +122,34 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         final Metadata metadata = currentClusterState.metadata();
         final List<Sandbox> previousSandboxes = metadata.getSandboxes();
         final List<Sandbox> newSandboxes = new ArrayList<>(previousSandboxes);
-        if (isAlreadyCoveredInExistingOnes(sandbox, previousSandboxes)) {
-            // TODO: Should be throw an exception instead
-            logger.warn("New sandbox is already covered in one of the existing sandboxes. not creating a new one..");
-            return currentClusterState;
+
+        String sandboxName = sandbox.getName();
+        if (previousSandboxes.stream().anyMatch(prevSandbox -> prevSandbox.getName().equals(sandboxName))) {
+            logger.warn("Sandbox with name {} already exists. Not creating a new one.", sandboxName);
+            throw new RuntimeException("Sandbox with name " + sandboxName + " already exists. Not creating a new one.");
         }
+
+        if (isIdenticalToExistingAttributes(sandbox, previousSandboxes)) {
+            logger.error("New sandbox attributes are identical to one of the existing attributes. not creating a new sandbox.");
+            throw new RuntimeException("New sandbox attributes are identical to one of the existing attributes. not creating a new sandbox.");
+        }
+
+        double currentJVMUsage = 0;
+        for (Sandbox existingSandbox: previousSandboxes) {
+            currentJVMUsage += existingSandbox.getResourceConsumptionLimits().getJvm().getAllocation();
+        }
+        double newJVMUsage = sandbox.getResourceConsumptionLimits().getJvm().getAllocation();
+        inflightJVMTotal.add(newJVMUsage);
+        double totalJVMUsage = currentJVMUsage + inflightJVMTotal.doubleValue();
         if (inflightCreateSandboxRequestCount.incrementAndGet() + previousSandboxes.size() > maxSandboxCount) {
-            inflightCreateSandboxRequestCount.decrementAndGet();
-            logger.error("{} value exceeded its assgined limit of {}", SANDBOX_COUNT_SETTING_NAME, maxSandboxCount);
-            throw new RuntimeException("Can't create more than " + maxSandboxCount + " in the system");
+            logger.error("{} value exceeded its assigned limit of {}", SANDBOX_COUNT_SETTING_NAME, maxSandboxCount);
+            throw new RuntimeException("Can't create more than " + maxSandboxCount + " sandboxes in the system");
         }
+        if (totalJVMUsage > 1) {
+            logger.error("Total JVM allocation will become {} after adding this sandbox, which goes above the max limit of 1.0", totalJVMUsage);
+            throw new RuntimeException("Total JVM allocation will become " + totalJVMUsage + " after adding this sandbox, which goes above the max limit of 1.0");
+        }
+
         newSandboxes.add(sandbox);
         return ClusterState.builder(currentClusterState)
             .metadata(
@@ -132,7 +157,18 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
             ).build();
     }
 
-    private boolean isAlreadyCoveredInExistingOnes(final Sandbox sandbox, final List<Sandbox> existingSandboxes) {
-        return existingSandboxes.stream().anyMatch(sandbox1 -> sandbox1.hasOvershadowingSelectionAttribute(sandbox));
+    private boolean isIdenticalToExistingAttributes(final Sandbox sandbox, final List<Sandbox> existingSandboxes) {
+        String sandboxIndicesValues = sandbox.getSandboxAttributes().getIndicesValues();
+        HashSet<String> sandboxIndicesValuesSet = new HashSet<>(Arrays.asList(sandboxIndicesValues.split(",")));
+
+        for (Sandbox existingSandbox: existingSandboxes) {
+            String existingIndicesValues  = existingSandbox.getSandboxAttributes().getIndicesValues();
+            HashSet<String> existingIndicesValuesSet = new HashSet<>(Arrays.asList(existingIndicesValues.split(",")));
+            if (sandboxIndicesValuesSet.equals(existingIndicesValuesSet)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

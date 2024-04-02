@@ -38,11 +38,10 @@ public class TransportCreateSandboxAction extends HandledTransportAction<CreateS
     protected void doExecute(Task task, CreateSandboxRequest request, ActionListener<CreateSandboxResponse> listener) {
         Sandbox sandbox = Sandbox
             .builder()
-            .selectionAttributes(request.getSelectionAttributes())
-                .resourceConsumptionLimit(request.getResourceConsumptionLimits())
-                    .tags(request.getTags())
-            .parentId(request.getParentSandboxId())
-            .priority(request.getPriority())
+            .name(request.getName())
+            .sandboxAttributes(request.getSandboxAttributes())
+            .resourceConsumptionLimit(request.getResourceConsumptionLimits())
+            .enforcement(request.getEnforcement())
             .build();
         threadPool.executor(ThreadPool.Names.GENERIC).execute(
             () ->

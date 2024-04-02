@@ -29,6 +29,7 @@ public class CreateSandboxResponse extends ActionResponse implements ToXContent,
     public CreateSandboxResponse() {
         this.sandbox = null;
     }
+
     public CreateSandboxResponse(StreamInput in) throws IOException {
         sandbox = new Sandbox(in);
     }

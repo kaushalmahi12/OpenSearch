@@ -16,7 +16,7 @@ import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.sandbox.Sandbox;
 import org.opensearch.search.sandbox.Sandbox.ResourceConsumptionLimits;
-import org.opensearch.search.sandbox.Sandbox.SelectionAttribute;
+import org.opensearch.search.sandbox.Sandbox.SandboxAttributes;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,34 +26,26 @@ import java.util.List;
  * Request class for CreateSandbox action
  */
 public class CreateSandboxRequest extends ActionRequest implements Writeable.Reader<CreateSandboxRequest> {
-    String parentSandboxId;
-    Integer priority;
+    String name;
     ResourceConsumptionLimits resourceConsumptionLimits;
-    List<SelectionAttribute> selectionAttributes;
-    List<String> tags;
+    SandboxAttributes sandboxAttributes;
+    String enforcement;
     public CreateSandboxRequest() {
-//        tags = new ArrayList<>();
     }
 
     public CreateSandboxRequest(Sandbox sandbox) {
-        this.parentSandboxId = sandbox.getParentId();
+        this.name = sandbox.getName();
         this.resourceConsumptionLimits = sandbox.getResourceConsumptionLimits();
-        this.selectionAttributes = sandbox.getSelectionAttributes();
-        this.tags = sandbox.getTags();
-        this.priority = sandbox.getPriority();
+        this.sandboxAttributes = sandbox.getSandboxAttributes();
+        this.enforcement = sandbox.getEnforcement();
     }
 
     public CreateSandboxRequest(StreamInput in) throws IOException {
         super(in);
-        parentSandboxId = in.readOptionalString();
-        priority = in.readVInt();
+        name = in.readString();
         resourceConsumptionLimits = new ResourceConsumptionLimits(in);
-        selectionAttributes = in.readList(SelectionAttribute::new);
-        int tagsLength = in.readVInt();
-        tags = new ArrayList<>(tagsLength);
-        for (int i=0; i<tagsLength; i++) {
-            tags.add(in.readString());
-        }
+        sandboxAttributes = new SandboxAttributes(in);
+        enforcement = in.readString();
     }
 
     @Override
@@ -71,49 +63,41 @@ public class CreateSandboxRequest extends ActionRequest implements Writeable.Rea
         return null;
     }
 
-    public String getParentSandboxId() {
-        return parentSandboxId;
-    }
-
-    public Integer getPriority() {
-        return priority;
+    public String getName() {
+        return name;
     }
 
     public ResourceConsumptionLimits getResourceConsumptionLimits() {
         return resourceConsumptionLimits;
     }
 
-    public List<SelectionAttribute> getSelectionAttributes() {
-        return selectionAttributes;
+    public SandboxAttributes getSandboxAttributes() {
+        return sandboxAttributes;
     }
 
-    public List<String> getTags() {
-        return tags;
+    public String getEnforcement() {
+        return enforcement;
     }
 
-    public void setParentSandboxId(String parentSandboxId) {
-        this.parentSandboxId = parentSandboxId;
-    }
-
-    public void setPriority(Integer priority) {
-        this.priority = priority;
+    public void setName(String name) {
+        this.name = name;
     }
 
     public void setResourceConsumptionLimits(ResourceConsumptionLimits resourceConsumptionLimits) {
         this.resourceConsumptionLimits = resourceConsumptionLimits;
     }
 
-    public void setSelectionAttributes(List<SelectionAttribute> selectionAttributes) {
-        this.selectionAttributes = selectionAttributes;
+    public void setSandboxAttributes(SandboxAttributes sandboxAttributes) {
+        this.sandboxAttributes = sandboxAttributes;
     }
 
-    public void setTags(List<String> tags) {
-        this.tags = tags;
+    public void setEnforcement(String enforcement) {
+        this.enforcement = enforcement;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        Sandbox.writeToOutputStream(out, parentSandboxId, priority, resourceConsumptionLimits, selectionAttributes, tags);
+        Sandbox.writeToOutputStream(out, name, resourceConsumptionLimits, sandboxAttributes, enforcement);
     }
 }

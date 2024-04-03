@@ -31,7 +31,7 @@ public class RestUpdateSandboxAction extends BaseRestHandler {
     @Override
     public List<Route> routes() {
         return unmodifiableList(
-            asList(new Route(POST, "_sandbox/{_id}"), new Route(PUT, "_sandbox/{_id}"))
+            asList(new Route(POST, "_sandbox/{name}"), new Route(PUT, "_sandbox/{name}"))
         );
     }
 
@@ -42,28 +42,21 @@ public class RestUpdateSandboxAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        String _id = request.param("_id");
-        UpdateSandboxRequest updateSandboxRequest = new UpdateSandboxRequest(_id);
+        String name = request.param("name");
+        UpdateSandboxRequest updateSandboxRequest = new UpdateSandboxRequest(name);
         request.applyContentParser((parser) -> {
-            parseRestRequest(updateSandboxRequest, parser, _id);
+            parseRestRequest(updateSandboxRequest, parser);
         });
-//        try (XContentParser parser = request.contentParser()) {
-//
-//        } catch (Exception e) {
-//            throw new RuntimeException(e.getMessage(), e);
-//        }
         return channel -> {
             client.updateSandbox(updateSandboxRequest, new RestStatusToXContentListener<>(channel));
         };
     }
 
-    private void parseRestRequest(UpdateSandboxRequest request, XContentParser parser, String _id) throws IOException {
+    private void parseRestRequest(UpdateSandboxRequest request, XContentParser parser) throws IOException {
          final UpdateSandboxRequest updateSandboxRequest = UpdateSandboxRequest.fromXContent(parser);
-         request.set_id(_id);
-         request.setPriority(updateSandboxRequest.getPriority());
-         request.setParentSandboxId(updateSandboxRequest.getParentSandboxId());
-         request.setTags(updateSandboxRequest.getTags());
-         request.setSelectionAttributes(updateSandboxRequest.getSelectionAttributes());
+         request.setUpdatingName(updateSandboxRequest.getUpdatingName());
+         request.setSandboxAttributes(updateSandboxRequest.getSandboxAttributes());
          request.setResourceConsumptionLimits(updateSandboxRequest.getResourceConsumptionLimits());
+         request.setEnforcement(updateSandboxRequest.getEnforcement());
     }
 }

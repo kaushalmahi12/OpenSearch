@@ -16,60 +16,47 @@ import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.sandbox.Sandbox;
 import org.opensearch.search.sandbox.Sandbox.ResourceConsumptionLimits;
-import org.opensearch.search.sandbox.Sandbox.SelectionAttribute;
+import org.opensearch.search.sandbox.Sandbox.SandboxAttributes;
+import org.opensearch.search.sandbox.Sandbox.SystemResource;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Request class for UpdateSandbox action
  */
 public class UpdateSandboxRequest extends ActionRequest implements Writeable.Reader<UpdateSandboxRequest> {
-    String _id;
-    String parentSandboxId;
-    Integer priority;
+    String existingName;
+    String updatingName;
     ResourceConsumptionLimits resourceConsumptionLimits;
-    List<SelectionAttribute> selectionAttributes;
-    List<String> tags;
-    public UpdateSandboxRequest(String _id) {
-        this._id = _id;
+    SandboxAttributes sandboxAttributes;
+    String enforcement;
+
+    public UpdateSandboxRequest(String existingName) {
+        this.existingName = existingName;
     }
 
     public UpdateSandboxRequest(Sandbox sandbox) {
-        this._id = sandbox.get_id();
-        this.parentSandboxId = sandbox.getParentId();
+        this.updatingName = sandbox.getName();
         this.resourceConsumptionLimits = sandbox.getResourceConsumptionLimits();
-        this.selectionAttributes = sandbox.getSelectionAttributes();
-        this.tags = sandbox.getTags();
-        this.priority = sandbox.getPriority();
+        this.sandboxAttributes = sandbox.getSandboxAttributes();
+        this.enforcement = sandbox.getEnforcement();
     }
 
     public UpdateSandboxRequest(StreamInput in) throws IOException {
         super(in);
-        _id = in.readString();
-        parentSandboxId = in.readOptionalString();
-        priority = in.readOptionalVInt();
-        Sandbox.SystemResource jvm = null, cpu = null;
+        existingName = in.readString();
+        updatingName = in.readOptionalString();
+        SystemResource jvm = null;
         if (in.readBoolean()) {
             if (in.readBoolean()) {
-                jvm = new Sandbox.SystemResource(in);
+                jvm = new SystemResource(in);
             }
-            if (in.readBoolean()) {
-                cpu = new Sandbox.SystemResource(in);
-            }
-            resourceConsumptionLimits = new ResourceConsumptionLimits(jvm, cpu);
+            resourceConsumptionLimits = new ResourceConsumptionLimits(jvm);
         }
         if (in.readBoolean()) {
-            selectionAttributes = in.readList(SelectionAttribute::new);
+            sandboxAttributes = new SandboxAttributes(in);
         }
-        if (in.readBoolean()) {
-            int tagsLength = in.readVInt();
-            tags = new ArrayList<>(tagsLength);
-            for (int i=0; i<tagsLength; i++) {
-                tags.add(in.readString());
-            }
-        }
+        enforcement = in.readOptionalString();
     }
 
     @Override
@@ -87,52 +74,50 @@ public class UpdateSandboxRequest extends ActionRequest implements Writeable.Rea
         return null;
     }
 
-    public String getParentSandboxId() {
-        return parentSandboxId;
+    public String getExistingName() {
+        return existingName;
     }
 
-    public Integer getPriority() {
-        return priority;
+    public void setExistingName(String existingName) {
+        this.existingName = existingName;
+    }
+
+    public String getUpdatingName() {
+        return updatingName;
+    }
+
+    public void setUpdatingName(String updatingName) {
+        this.updatingName = updatingName;
+    }
+
+    public SandboxAttributes getSandboxAttributes() {
+        return sandboxAttributes;
+    }
+
+    public void setSandboxAttributes(SandboxAttributes sandboxAttributes) {
+        this.sandboxAttributes = sandboxAttributes;
+    }
+
+    public String getEnforcement() {
+        return enforcement;
+    }
+
+    public void setEnforcement(String enforcement) {
+        this.enforcement = enforcement;
     }
 
     public ResourceConsumptionLimits getResourceConsumptionLimits() {
         return resourceConsumptionLimits;
     }
 
-    public List<SelectionAttribute> getSelectionAttributes() {
-        return selectionAttributes;
-    }
-
-    public List<String> getTags() {
-        return tags;
-    }
-
-    public void setParentSandboxId(String parentSandboxId) {
-        this.parentSandboxId = parentSandboxId;
-    }
-
-    public void setPriority(Integer priority) {
-        this.priority = priority;
-    }
-
     public void setResourceConsumptionLimits(ResourceConsumptionLimits resourceConsumptionLimits) {
         this.resourceConsumptionLimits = resourceConsumptionLimits;
     }
-
-    public void setSelectionAttributes(List<SelectionAttribute> selectionAttributes) {
-        this.selectionAttributes = selectionAttributes;
-    }
-
-    public void setTags(List<String> tags) {
-        this.tags = tags;
-    }
-
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeString(_id);
-        out.writeOptionalString(parentSandboxId);
-        out.writeOptionalVInt(priority);
+        out.writeString(existingName);
+        out.writeOptionalString(updatingName);
         if (resourceConsumptionLimits == null) {
             out.writeBoolean(false);
         } else {
@@ -143,35 +128,13 @@ public class UpdateSandboxRequest extends ActionRequest implements Writeable.Rea
                 out.writeBoolean(true);
                 resourceConsumptionLimits.getJvm().writeTo(out);
             }
-            if (resourceConsumptionLimits.getCpu() == null) {
-                out.writeBoolean(false);
-            } else {
-                out.writeBoolean(true);
-                resourceConsumptionLimits.getCpu().writeTo(out);
-            }
         }
-        if (selectionAttributes == null) {
+        if (sandboxAttributes == null) {
             out.writeBoolean(false);
         } else {
             out.writeBoolean(true);
-            out.writeList(selectionAttributes);
+            sandboxAttributes.writeTo(out);
         }
-        if (tags == null) {
-            out.writeBoolean(false);
-        } else {
-            out.writeBoolean(true);
-            out.writeVInt(tags.size());
-            for (String tag: tags) {
-                out.writeString(tag);
-            };
-        }
-    }
-
-    public String get_id() {
-        return _id;
-    }
-
-    public void set_id(String _id) {
-        this._id = _id;
+        out.writeOptionalString(enforcement);
     }
 }

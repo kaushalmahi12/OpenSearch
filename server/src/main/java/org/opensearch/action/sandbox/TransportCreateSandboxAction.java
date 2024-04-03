@@ -42,7 +42,7 @@ public class TransportCreateSandboxAction extends HandledTransportAction<CreateS
             .sandboxAttributes(request.getSandboxAttributes())
             .resourceConsumptionLimit(request.getResourceConsumptionLimits())
             .enforcement(request.getEnforcement())
-            .build();
+            .build(false);
         threadPool.executor(ThreadPool.Names.GENERIC).execute(
             () ->
                 sandboxPersistenceService.persist(sandbox, listener)

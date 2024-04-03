@@ -36,30 +36,16 @@ public class TransportUpdateSandboxAction extends HandledTransportAction<UpdateS
 
     @Override
     protected void doExecute(Task task, UpdateSandboxRequest request, ActionListener<UpdateSandboxResponse> listener) {
-        Sandbox sandbox;
-        if (request.getPriority() == null) {
-            sandbox = Sandbox
-                .builder()
-                .id(request.get_id())
-                .selectionAttributes(request.getSelectionAttributes())
-                .resourceConsumptionLimit(request.getResourceConsumptionLimits())
-                .tags(request.getTags())
-                .parentId(request.getParentSandboxId())
-                .build(true);
-        } else {
-            sandbox = Sandbox
-                .builder()
-                .id(request.get_id())
-                .selectionAttributes(request.getSelectionAttributes())
-                .resourceConsumptionLimit(request.getResourceConsumptionLimits())
-                .tags(request.getTags())
-                .parentId(request.getParentSandboxId())
-                .priority(request.getPriority())
-                .build(true);
-        }
+        Sandbox sandbox = Sandbox
+            .builder()
+            .name(request.getUpdatingName())
+            .sandboxAttributes(request.getSandboxAttributes())
+            .resourceConsumptionLimit(request.getResourceConsumptionLimits())
+            .enforcement(request.getEnforcement())
+            .build(true);
         threadPool.executor(ThreadPool.Names.GENERIC).execute(
             () ->
-                sandboxPersistenceService.update(sandbox, listener)
+                sandboxPersistenceService.update(sandbox, request.getExistingName(), listener)
             );
     }
 }

@@ -24,14 +24,13 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.search.sandbox.Sandbox.SandboxAttributes;
+import org.opensearch.search.sandbox.Sandbox.SystemResource;
 import org.opensearch.tasks.Task;
 
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
 import java.util.concurrent.atomic.DoubleAdder;
 
 /**
@@ -180,70 +179,59 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         return false;
     }
 
-    public <U extends ActionResponse> void update(Sandbox sandbox, ActionListener<U> listener) {
-        String _id = sandbox.get_id();
+    public <U extends ActionResponse> void update(Sandbox sandbox, String existingName, ActionListener<U> listener) {
         ClusterState currentState = clusterService.state();
         List<Sandbox> currentSandboxes = currentState.getMetadata().getSandboxes();
         List<Sandbox> targetSandboxList = currentSandboxes.stream()
-            .filter((sb)->(sb.get_id().equals(_id)))
+            .filter((sb)->(sb.getName().equals(existingName)))
             .collect(Collectors.toList());
         if (targetSandboxList.isEmpty()) {
-            logger.warn("No sandbox exists with the provided _id: {}", _id);
-            Exception e = new RuntimeException(String.format("No sandbox exists with the provided _id: %s", _id));
+            logger.warn("No sandbox exists with the provided name: {}", existingName);
+            Exception e = new RuntimeException(String.format("No sandbox exists with the provided name: %s", existingName));
             UpdateSandboxResponse response = new UpdateSandboxResponse();
             response.setRestStatus(RestStatus.NOT_FOUND);
             listener.onFailure(e);
             return;
         }
-        Sandbox targetSandbox = targetSandboxList.get(0);
+        Sandbox existingSandbox = targetSandboxList.get(0);
 
         // build the sandbox with updated fields
-        Integer priority = sandbox.priority == null? targetSandbox.getPriority() : sandbox.getPriority();
-        String parentId = sandbox.parentId == null? targetSandbox.getParentId():sandbox.getParentId();
-        List<Sandbox.SelectionAttribute> selectionAttributes = new ArrayList<>();
-        if (sandbox.getSelectionAttributes() == null || sandbox.getSelectionAttributes().isEmpty()) {
-            selectionAttributes = targetSandbox.getSelectionAttributes();
+        String name = sandbox.getName() == null? existingSandbox.getName():sandbox.getName();
+        SandboxAttributes sandboxAttributes;
+        if (sandbox.getSandboxAttributes() == null) {
+            sandboxAttributes = existingSandbox.getSandboxAttributes();
         } else {
-            Map<String, Sandbox.SelectionAttribute> attributeMap = new HashMap<>();
-            targetSandbox.getSelectionAttributes()
-                .forEach(attribute -> attributeMap.put(attribute.getAttributeNane(), attribute));
-            sandbox.getSelectionAttributes()
-                .forEach(attribute -> attributeMap.put(attribute.getAttributeNane(), attribute));
-            selectionAttributes.addAll(attributeMap.values());
+            sandboxAttributes = new SandboxAttributes(sandbox.getSandboxAttributes().getIndicesValues());
         }
-
         Sandbox.ResourceConsumptionLimits resourceConsumptionLimits;
         if (sandbox.getResourceConsumptionLimits() == null) {
-            resourceConsumptionLimits = targetSandbox.getResourceConsumptionLimits();
+            resourceConsumptionLimits = existingSandbox.getResourceConsumptionLimits();
         } else {
-            Sandbox.SystemResource cpu = targetSandbox.getResourceConsumptionLimits().getCpu();
-            Sandbox.SystemResource jvm = targetSandbox.getResourceConsumptionLimits().getJvm();
-            if (sandbox.getResourceConsumptionLimits().getCpu() != null) {
-                cpu = Sandbox.SystemResource.builder().name("cpu")
-                    .high(sandbox.getResourceConsumptionLimits().getCpu().getHigh())
-                    .low(sandbox.getResourceConsumptionLimits().getCpu().getLow())
-                    .build();
-            }
+            SystemResource jvm = existingSandbox.getResourceConsumptionLimits().getJvm();
             if (sandbox.getResourceConsumptionLimits().getJvm() != null) {
-                jvm = Sandbox.SystemResource.builder().name("jvm")
-                    .high(sandbox.getResourceConsumptionLimits().getJvm().getHigh())
-                    .low(sandbox.getResourceConsumptionLimits().getJvm().getLow())
+                jvm = SystemResource
+                    .builder()
+                    .name("jvm")
+                    .allocation(sandbox.getResourceConsumptionLimits().getJvm().getAllocation())
                     .build();
             }
-            resourceConsumptionLimits = new Sandbox.ResourceConsumptionLimits(jvm, cpu);
+            resourceConsumptionLimits = new Sandbox.ResourceConsumptionLimits(jvm);
         }
+        String enforcement = sandbox.getEnforcement() == null? existingSandbox.getEnforcement():sandbox.getEnforcement();
+
+        String new_id = String.valueOf(Objects.hash(name, sandboxAttributes, resourceConsumptionLimits, enforcement));
+
 
         Sandbox updatedSandbox = Sandbox
             .builder()
-            .id(_id)
-            .selectionAttributes(selectionAttributes)
+            .id(new_id)
+            .name(name)
+            .sandboxAttributes(sandboxAttributes)
             .resourceConsumptionLimit(resourceConsumptionLimits)
-            .tags(targetSandbox.getTags())
-            .parentId(parentId)
-            .priority(priority)
+            .enforcement(enforcement)
             .build(true);
 
-        updateInClusterStateMetadata(targetSandbox, updatedSandbox, (ActionListener<UpdateSandboxResponse>) listener);
+        updateInClusterStateMetadata(existingSandbox, updatedSandbox, (ActionListener<UpdateSandboxResponse>) listener);
     }
 
     void updateInClusterStateMetadata(Sandbox currentSandbox, Sandbox updatedSandbox, ActionListener<UpdateSandboxResponse> listener) {
@@ -351,15 +339,15 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
     public <U extends ActionResponse> void get(String _id, ActionListener<U> listener) {
         ClusterState currentState = clusterService.state();
         List<Sandbox> currentSandboxes = currentState.getMetadata().getSandboxes();
-        Set<String> currentID = currentSandboxes.stream().map((sb)->(sb.get_id())).collect(Collectors.toSet());
-        if (_id != null && !currentID.contains(_id)) {
-            logger.warn("No sandbox exists with the provided _id: {}", _id);
-            Exception e = new RuntimeException(String.format("No sandbox exists with the provided _id: %s", _id));
-            GetSandboxResponse response = new GetSandboxResponse();
-            response.setRestStatus(RestStatus.NOT_FOUND);
-            listener.onFailure(e);
-            return;
-        }
+//        Set<String> currentID = currentSandboxes.stream().map((sb)->(sb.get_id())).collect(Collectors.toSet());
+//        if (_id != null && !currentID.contains(_id)) {
+//            logger.warn("No sandbox exists with the provided _id: {}", _id);
+//            Exception e = new RuntimeException(String.format("No sandbox exists with the provided _id: %s", _id));
+//            GetSandboxResponse response = new GetSandboxResponse();
+//            response.setRestStatus(RestStatus.NOT_FOUND);
+//            listener.onFailure(e);
+//            return;
+//        }
         List<Sandbox> resultSandboxes = getFromClusterStateMetadata(_id, currentState);
         GetSandboxResponse response = new GetSandboxResponse(resultSandboxes);
         response.setRestStatus(RestStatus.OK);

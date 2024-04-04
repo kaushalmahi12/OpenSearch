@@ -26,7 +26,7 @@ public interface Persistable<T> {
 
     <U extends ActionResponse> void update(T sandbox, String existingName, ActionListener<U> listener);
 
-    <U extends ActionResponse> void get(String _id, ActionListener<U> listener);
+    <U extends ActionResponse> void get(String name, ActionListener<U> listener);
 
-    <U extends ActionResponse> void delete(String _id, ActionListener<U> listener);
+    <U extends ActionResponse> void delete(String name, ActionListener<U> listener);
 }

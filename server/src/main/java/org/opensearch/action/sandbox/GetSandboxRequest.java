@@ -15,30 +15,26 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.sandbox.Sandbox;
-import org.opensearch.search.sandbox.Sandbox.ResourceConsumptionLimits;
-import org.opensearch.search.sandbox.Sandbox.SelectionAttribute;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Request class for GetSandbox action
  */
 public class GetSandboxRequest extends ActionRequest implements Writeable.Reader<GetSandboxRequest> {
-    String _id;
+    String name;
 
-    public GetSandboxRequest(String _id) {
-        this._id = _id;
+    public GetSandboxRequest(String name) {
+        this.name = name;
     }
 
     public GetSandboxRequest(Sandbox sandbox) {
-        this._id = sandbox.get_id();
+        this.name = sandbox.getName();
     }
 
     public GetSandboxRequest(StreamInput in) throws IOException {
         super(in);
-        this._id = in.readOptionalString();
+        this.name = in.readOptionalString();
     }
 
     @Override
@@ -47,7 +43,7 @@ public class GetSandboxRequest extends ActionRequest implements Writeable.Reader
     }
 
     public static GetSandboxRequest fromXContent(XContentParser parser) throws IOException {
-        Sandbox sandbox = Sandbox.Builder.fromXContent(parser, false);
+        Sandbox sandbox = Sandbox.Builder.fromXContent(parser, true);
         return new GetSandboxRequest(sandbox);
     }
 
@@ -56,17 +52,17 @@ public class GetSandboxRequest extends ActionRequest implements Writeable.Reader
         return null;
     }
 
-    public String get_id() {
-        return _id;
+    public String getName() {
+        return name;
     }
 
-    public void set_id(String _id) {
-        this._id = _id;
+    public void setName(String name) {
+        this.name = name;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeOptionalString(_id);
+        out.writeOptionalString(name);
     }
 }

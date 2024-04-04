@@ -47,7 +47,7 @@ public class GetSandboxResponse extends ActionResponse implements ToXContent, St
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.startArray("available");
+        builder.startArray("sandboxes");
         for (Sandbox sb: sandboxes) {
             sb.toXContent(builder, params);
         }

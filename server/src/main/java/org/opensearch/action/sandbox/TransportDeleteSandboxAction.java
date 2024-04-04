@@ -36,10 +36,10 @@ public class TransportDeleteSandboxAction extends HandledTransportAction<DeleteS
 
     @Override
     protected void doExecute(Task task, DeleteSandboxRequest request, ActionListener<DeleteSandboxResponse> listener) {
-        String _id = request.get_id();
+        String name = request.getName();
         threadPool.executor(ThreadPool.Names.GENERIC).execute(
             () ->
-                sandboxPersistenceService.delete(_id, listener)
+                sandboxPersistenceService.delete(name, listener)
             );
     }
 }

@@ -181,10 +181,8 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
 
     public <U extends ActionResponse> void update(Sandbox sandbox, String existingName, ActionListener<U> listener) {
         ClusterState currentState = clusterService.state();
-        List<Sandbox> currentSandboxes = currentState.getMetadata().getSandboxes();
-        List<Sandbox> targetSandboxList = currentSandboxes.stream()
-            .filter((sb)->(sb.getName().equals(existingName)))
-            .collect(Collectors.toList());
+        List<Sandbox> targetSandboxList = getFromClusterStateMetadata(existingName, currentState);
+
         if (targetSandboxList.isEmpty()) {
             logger.warn("No sandbox exists with the provided name: {}", existingName);
             Exception e = new RuntimeException(String.format("No sandbox exists with the provided name: %s", existingName));
@@ -274,15 +272,15 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
             ).build();
     }
 
-    public <U extends ActionResponse> void delete(String _id, ActionListener<U> listener) {
-        deleteInClusterStateMetadata(_id, (ActionListener<DeleteSandboxResponse>) listener);
+    public <U extends ActionResponse> void delete(String name, ActionListener<U> listener) {
+        deleteInClusterStateMetadata(name, (ActionListener<DeleteSandboxResponse>) listener);
     }
 
-    void deleteInClusterStateMetadata(String _id, ActionListener<DeleteSandboxResponse> listener) {
+    void deleteInClusterStateMetadata(String name, ActionListener<DeleteSandboxResponse> listener) {
         clusterService.submitStateUpdateTask(SOURCE, new ClusterStateUpdateTask(Priority.URGENT) {
             @Override
             public ClusterState execute(ClusterState currentState) throws Exception {
-                return deleteNewSandboxObjectInClusterState(_id, currentState);
+                return deleteNewSandboxObjectInClusterState(name, currentState);
             }
 
             @Override
@@ -313,21 +311,21 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         });
     }
 
-    ClusterState deleteNewSandboxObjectInClusterState(final String _id, final ClusterState currentClusterState) {
+    ClusterState deleteNewSandboxObjectInClusterState(final String name, final ClusterState currentClusterState) {
         final Metadata metadata = currentClusterState.metadata();
         final List<Sandbox> previousSandboxes = metadata.getSandboxes();
         final List<Sandbox> resultSandboxes;
-        if (_id == null || _id.equals("")) {
+        if (name == null || name.equals("")) {
             resultSandboxes = new ArrayList<>();
         } else {
-            boolean sandboxWithIdExisted = previousSandboxes.stream().anyMatch(sb -> sb._id.equals(_id));
+            boolean sandboxWithIdExisted = previousSandboxes.stream().anyMatch(sb -> sb.getName().equals(name));
             if (!sandboxWithIdExisted) {
-                logger.error("The sandbox with provided _id {} doesn't exist", _id);
-                throw new RuntimeException(String.format("No sandbox exists with the provided _id: %s", _id));
+                logger.error("The sandbox with provided name {} doesn't exist", name);
+                throw new RuntimeException(String.format("No sandbox exists with the provided name: %s", name));
             }
             resultSandboxes = previousSandboxes
                 .stream()
-                .filter(sb -> !sb._id.equals(_id))
+                .filter(sb -> !sb.getName().equals(name))
                 .collect(Collectors.toList());
         }
         return ClusterState.builder(currentClusterState)
@@ -336,32 +334,30 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
             ).build();
     }
 
-    public <U extends ActionResponse> void get(String _id, ActionListener<U> listener) {
+    public <U extends ActionResponse> void get(String name, ActionListener<U> listener) {
         ClusterState currentState = clusterService.state();
-        List<Sandbox> currentSandboxes = currentState.getMetadata().getSandboxes();
-//        Set<String> currentID = currentSandboxes.stream().map((sb)->(sb.get_id())).collect(Collectors.toSet());
-//        if (_id != null && !currentID.contains(_id)) {
-//            logger.warn("No sandbox exists with the provided _id: {}", _id);
-//            Exception e = new RuntimeException(String.format("No sandbox exists with the provided _id: %s", _id));
-//            GetSandboxResponse response = new GetSandboxResponse();
-//            response.setRestStatus(RestStatus.NOT_FOUND);
-//            listener.onFailure(e);
-//            return;
-//        }
-        List<Sandbox> resultSandboxes = getFromClusterStateMetadata(_id, currentState);
+        List<Sandbox> resultSandboxes = getFromClusterStateMetadata(name, currentState);
+        if (resultSandboxes.isEmpty() && name != null && !name.isEmpty()) {
+            logger.warn("No sandbox exists with the provided name: {}", name);
+            Exception e = new RuntimeException(String.format("No sandbox exists with the provided name: %s", name));
+            GetSandboxResponse response = new GetSandboxResponse();
+            response.setRestStatus(RestStatus.NOT_FOUND);
+            listener.onFailure(e);
+            return;
+        }
         GetSandboxResponse response = new GetSandboxResponse(resultSandboxes);
         response.setRestStatus(RestStatus.OK);
         listener.onResponse((U) response);
     }
 
-    List<Sandbox> getFromClusterStateMetadata(String _id, ClusterState currentState) {
+    List<Sandbox> getFromClusterStateMetadata(String name, ClusterState currentState) {
         List<Sandbox> currentSandboxes = currentState.getMetadata().getSandboxes();
         List<Sandbox> resultSandboxes = new ArrayList<>();
-        if (_id == null || _id.equals("")) {
+        if (name == null || name.equals("")) {
             resultSandboxes = currentSandboxes;
         } else {
             resultSandboxes.addAll(currentSandboxes.stream()
-                .filter(sb -> sb.get_id().equals(_id))
+                .filter(sb -> sb.getName().equals(name))
                 .collect(Collectors.toList()));
         }
         return resultSandboxes;

@@ -8,10 +8,8 @@
 
 package org.opensearch.rest.action.sandbox;
 
-import org.opensearch.action.sandbox.CreateSandboxRequest;
 import org.opensearch.action.sandbox.GetSandboxRequest;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestStatusToXContentListener;
@@ -31,7 +29,7 @@ public class RestGetSandboxAction extends BaseRestHandler {
     @Override
     public List<Route> routes() {
         return unmodifiableList(
-            asList(new Route(GET, "_sandbox/{_id}"), new Route(GET, "_sandbox/"))
+            asList(new Route(GET, "_sandbox/{name}"), new Route(GET, "_sandbox/"))
         );
     }
 
@@ -42,18 +40,10 @@ public class RestGetSandboxAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        String _id = request.param("_id");
-        GetSandboxRequest getSandboxRequest = new GetSandboxRequest(_id);
-        request.applyContentParser((parser) -> {
-            parseRestRequest(getSandboxRequest, parser);
-        });
+        String name = request.param("name");
+        GetSandboxRequest getSandboxRequest = new GetSandboxRequest(name);
         return channel -> {
             client.getSandbox(getSandboxRequest, new RestStatusToXContentListener<>(channel));
         };
-    }
-
-    private void parseRestRequest(GetSandboxRequest request, XContentParser parser) throws IOException {
-         final GetSandboxRequest getSandboxRequest = GetSandboxRequest.fromXContent(parser);
-         //request.setTags(getSandboxRequest.getTags());
     }
 }

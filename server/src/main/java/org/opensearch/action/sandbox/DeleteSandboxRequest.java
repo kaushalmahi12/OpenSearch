@@ -22,19 +22,19 @@ import java.io.IOException;
  * Request class for DeleteSandbox action
  */
 public class DeleteSandboxRequest extends ActionRequest implements Writeable.Reader<DeleteSandboxRequest> {
-    String _id;
+    String name;
 
-    public DeleteSandboxRequest(String _id) {
-        this._id = _id;
+    public DeleteSandboxRequest(String name) {
+        this.name = name;
     }
 
     public DeleteSandboxRequest(Sandbox sandbox) {
-        this._id = sandbox.get_id();
+        this.name = sandbox.getName();
     }
 
     public DeleteSandboxRequest(StreamInput in) throws IOException {
         super(in);
-        this._id = in.readOptionalString();
+        this.name = in.readOptionalString();
     }
 
     @Override
@@ -43,7 +43,7 @@ public class DeleteSandboxRequest extends ActionRequest implements Writeable.Rea
     }
 
     public static DeleteSandboxRequest fromXContent(XContentParser parser) throws IOException {
-        Sandbox sandbox = Sandbox.Builder.fromXContent(parser, false);
+        Sandbox sandbox = Sandbox.Builder.fromXContent(parser, true);
         return new DeleteSandboxRequest(sandbox);
     }
 
@@ -52,17 +52,17 @@ public class DeleteSandboxRequest extends ActionRequest implements Writeable.Rea
         return null;
     }
 
-    public String get_id() {
-        return _id;
+    public String getName() {
+        return name;
     }
 
-    public void set_id(String _id) {
-        this._id = _id;
+    public void setName(String name) {
+        this.name = name;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeOptionalString(_id);
+        out.writeOptionalString(name);
     }
 }

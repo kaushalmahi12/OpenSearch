@@ -36,10 +36,10 @@ public class TransportGetSandboxAction extends HandledTransportAction<GetSandbox
 
     @Override
     protected void doExecute(Task task, GetSandboxRequest request, ActionListener<GetSandboxResponse> listener) {
-        String _id = request.get_id();
+        String name = request.getName();
         threadPool.executor(ThreadPool.Names.GENERIC).execute(
             () ->
-                sandboxPersistenceService.get(_id, listener)
+                sandboxPersistenceService.get(name, listener)
         );
     }
 }

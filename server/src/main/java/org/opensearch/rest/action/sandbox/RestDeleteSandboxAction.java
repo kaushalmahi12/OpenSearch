@@ -31,7 +31,7 @@ public class RestDeleteSandboxAction extends BaseRestHandler {
     @Override
     public List<Route> routes() {
         return unmodifiableList(
-            asList(new Route(DELETE, "_sandbox/{_id}"), new Route(DELETE, "_sandbox"))
+            asList(new Route(DELETE, "_sandbox/{name}"), new Route(DELETE, "_sandbox"))
         );
     }
 
@@ -42,18 +42,10 @@ public class RestDeleteSandboxAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        String _id = request.param("_id");
-        DeleteSandboxRequest deleteSandboxRequest = new DeleteSandboxRequest(_id);
-//        request.applyContentParser((parser) -> {
-//            parseRestRequest(deleteSandboxRequest, parser);
-//        });
+        String name = request.param("name");
+        DeleteSandboxRequest deleteSandboxRequest = new DeleteSandboxRequest(name);
         return channel -> {
             client.deleteSandbox(deleteSandboxRequest, new RestStatusToXContentListener<>(channel));
         };
     }
-
-//    private void parseRestRequest(DeleteSandboxRequest request, XContentParser parser) throws IOException {
-//         final GetSandboxRequest getSandboxRequest = GetSandboxRequest.fromXContent(parser);
-//         //request.setTags(getSandboxRequest.getTags());
-//    }
 }

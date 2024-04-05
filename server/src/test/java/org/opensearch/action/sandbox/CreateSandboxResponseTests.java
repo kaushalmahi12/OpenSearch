@@ -23,17 +23,19 @@ import static org.opensearch.search.sandbox.SandboxTests.NAME_ONE;
 import static org.opensearch.search.sandbox.SandboxTests.compareSandboxes;
 import static org.opensearch.search.sandbox.SandboxTests.createSandbox;
 
-public class UpdateSandboxResponseTests extends OpenSearchTestCase {
+public class CreateSandboxResponseTests extends OpenSearchTestCase {
 
     public void testSerializationSingleSandbox() throws IOException {
         List<Double> resourceLimits = List.of(FORTY);
         List<String> attributes = List.of(INDICES_NAME_VAL_ONE);
         Sandbox sb = createSandbox(NAME_ONE, attributes, resourceLimits, MONITOR);
-        UpdateSandboxResponse response = new UpdateSandboxResponse(sb);
+        CreateSandboxResponse response = new CreateSandboxResponse(sb);
+        compareSandboxes(List.of(sb), List.of(response.getSandbox()));
+
         BytesStreamOutput out = new BytesStreamOutput();
         response.writeTo(out);
         StreamInput streamInput = out.bytes().streamInput();
-        UpdateSandboxResponse otherResponse = new UpdateSandboxResponse(streamInput);
+        CreateSandboxResponse otherResponse = new CreateSandboxResponse(streamInput);
         assertEquals(response.status(), otherResponse.status());
         compareSandboxes(List.of(response.getSandbox()), List.of(otherResponse.getSandbox()));
     }

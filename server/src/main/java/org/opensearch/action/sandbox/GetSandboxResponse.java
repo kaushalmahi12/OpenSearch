@@ -18,7 +18,6 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.search.sandbox.Sandbox;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -31,6 +30,7 @@ public class GetSandboxResponse extends ActionResponse implements ToXContent, St
     public GetSandboxResponse() {
         this.sandboxes = null;
     }
+
     public GetSandboxResponse(StreamInput in) throws IOException {
         this.sandboxes = in.readList(Sandbox::new);
     }
@@ -48,7 +48,7 @@ public class GetSandboxResponse extends ActionResponse implements ToXContent, St
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
         builder.startArray("sandboxes");
-        for (Sandbox sb: sandboxes) {
+        for (Sandbox sb : sandboxes) {
             sb.toXContent(builder, params);
         }
         builder.endArray();

@@ -8,9 +8,6 @@
 
 package org.opensearch.search.sandbox;
 
-
-import org.opensearch.action.sandbox.CreateSandboxResponse;
-import org.opensearch.action.sandbox.GetSandboxRequest;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 

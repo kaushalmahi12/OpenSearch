@@ -1776,7 +1776,6 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
                     builder.endObject();
                 }
             }
-//            builder.array("sandboxes", metadata.sandboxes());
             if (metadata.sandboxes != null) {
                 builder.startArray("sandboxes");
                 for (Sandbox sandbox : metadata.sandboxes) {

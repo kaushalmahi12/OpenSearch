@@ -18,25 +18,30 @@ import java.util.List;
 
 import static org.opensearch.search.sandbox.SandboxTests.FORTY;
 import static org.opensearch.search.sandbox.SandboxTests.INDICES_NAME_VAL_ONE;
+import static org.opensearch.search.sandbox.SandboxTests.JVM;
 import static org.opensearch.search.sandbox.SandboxTests.MONITOR;
 import static org.opensearch.search.sandbox.SandboxTests.NAME_ONE;
 import static org.opensearch.search.sandbox.SandboxTests.createSandbox;
 
-public class UpdateSandboxRequestTests extends OpenSearchTestCase {
+public class CreateSandboxRequestTests extends OpenSearchTestCase {
 
     public void testSerialization() throws IOException {
         List<Double> resourceLimits = List.of(FORTY);
         List<String> attributes = List.of(INDICES_NAME_VAL_ONE);
         Sandbox sb = createSandbox(NAME_ONE, attributes, resourceLimits, MONITOR);
         assertEquals(NAME_ONE, sb.getName());
-        UpdateSandboxRequest request = new UpdateSandboxRequest(sb);
-        assertEquals(NAME_ONE, request.getUpdatingName());
+        CreateSandboxRequest request = new CreateSandboxRequest(sb);
+        assertEquals(NAME_ONE, request.getName());
+        assertEquals(MONITOR, request.getEnforcement());
+        assertEquals(FORTY, request.getResourceConsumptionLimits().getJvm().getAllocation(), 0);
+        assertEquals(JVM, request.getResourceConsumptionLimits().getJvm().getName());
+        assertEquals(INDICES_NAME_VAL_ONE, request.getSandboxAttributes().getIndicesValues());
+
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput streamInput = out.bytes().streamInput();
-        UpdateSandboxRequest otherRequest = new UpdateSandboxRequest(streamInput);
-        assertEquals(request.getUpdatingName(), otherRequest.getUpdatingName());
-        assertEquals(request.getExistingName(), otherRequest.getExistingName());
+        CreateSandboxRequest otherRequest = new CreateSandboxRequest(streamInput);
+        assertEquals(request.getName(), otherRequest.getName());
         assertEquals(request.getEnforcement(), otherRequest.getEnforcement());
         assertEquals(
             request.getResourceConsumptionLimits().getJvm().getAllocation(),
@@ -48,15 +53,5 @@ public class UpdateSandboxRequestTests extends OpenSearchTestCase {
             otherRequest.getResourceConsumptionLimits().getJvm().getName()
         );
         assertEquals(request.getSandboxAttributes().getIndicesValues(), otherRequest.getSandboxAttributes().getIndicesValues());
-    }
-
-    public void testSerializationOnlyName() throws IOException {
-        UpdateSandboxRequest request = new UpdateSandboxRequest(NAME_ONE);
-        assertEquals(NAME_ONE, request.getExistingName());
-        BytesStreamOutput out = new BytesStreamOutput();
-        request.writeTo(out);
-        StreamInput streamInput = out.bytes().streamInput();
-        UpdateSandboxRequest otherRequest = new UpdateSandboxRequest(streamInput);
-        assertEquals(NAME_ONE, otherRequest.getExistingName());
     }
 }

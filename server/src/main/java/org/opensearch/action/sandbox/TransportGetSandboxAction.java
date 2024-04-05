@@ -26,9 +26,13 @@ public class TransportGetSandboxAction extends HandledTransportAction<GetSandbox
     private final Persistable<Sandbox> sandboxPersistenceService;
 
     @Inject
-    public TransportGetSandboxAction(String actionName, TransportService transportService,
-                                     ActionFilters actionFilters, ThreadPool threadPool,
-                                     Persistable<Sandbox> sandboxPersistenceService) {
+    public TransportGetSandboxAction(
+        String actionName,
+        TransportService transportService,
+        ActionFilters actionFilters,
+        ThreadPool threadPool,
+        Persistable<Sandbox> sandboxPersistenceService
+    ) {
         super(GetSandboxAction.NAME, transportService, actionFilters, GetSandboxRequest::new);
         this.threadPool = threadPool;
         this.sandboxPersistenceService = sandboxPersistenceService;
@@ -37,9 +41,6 @@ public class TransportGetSandboxAction extends HandledTransportAction<GetSandbox
     @Override
     protected void doExecute(Task task, GetSandboxRequest request, ActionListener<GetSandboxResponse> listener) {
         String name = request.getName();
-        threadPool.executor(ThreadPool.Names.GENERIC).execute(
-            () ->
-                sandboxPersistenceService.get(name, listener)
-        );
+        threadPool.executor(ThreadPool.Names.GENERIC).execute(() -> sandboxPersistenceService.get(name, listener));
     }
 }

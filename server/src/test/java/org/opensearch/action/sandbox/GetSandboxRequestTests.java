@@ -15,24 +15,25 @@ import org.opensearch.test.OpenSearchTestCase;
 import java.io.IOException;
 
 public class GetSandboxRequestTests extends OpenSearchTestCase {
-    public static final String ID = "1502695575";
+    public static final String NAME = "test_sandbox";
+
     public void testSerialization() throws IOException {
-        GetSandboxRequest request = new GetSandboxRequest(ID);
-        assertEquals(ID, request.get_id());
+        GetSandboxRequest request = new GetSandboxRequest(NAME);
+        assertEquals(NAME, request.getName());
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput streamInput = out.bytes().streamInput();
         GetSandboxRequest otherRequest = new GetSandboxRequest(streamInput);
-        assertEquals(request.get_id(), otherRequest.get_id());
+        assertEquals(request.getName(), otherRequest.getName());
     }
 
     public void testSerializationWithNull() throws IOException {
         GetSandboxRequest request = new GetSandboxRequest((String) null);
-        assertEquals(null, request.get_id());
+        assertEquals(null, request.getName());
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput streamInput = out.bytes().streamInput();
         GetSandboxRequest otherRequest = new GetSandboxRequest(streamInput);
-        assertEquals(request.get_id(), otherRequest.get_id());
+        assertEquals(request.getName(), otherRequest.getName());
     }
 }

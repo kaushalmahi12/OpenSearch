@@ -26,9 +26,13 @@ public class TransportDeleteSandboxAction extends HandledTransportAction<DeleteS
     private final Persistable<Sandbox> sandboxPersistenceService;
 
     @Inject
-    public TransportDeleteSandboxAction(String actionName, TransportService transportService,
-                                        ActionFilters actionFilters, ThreadPool threadPool,
-                                        Persistable<Sandbox> sandboxPersistenceService) {
+    public TransportDeleteSandboxAction(
+        String actionName,
+        TransportService transportService,
+        ActionFilters actionFilters,
+        ThreadPool threadPool,
+        Persistable<Sandbox> sandboxPersistenceService
+    ) {
         super(DeleteSandboxAction.NAME, transportService, actionFilters, DeleteSandboxRequest::new);
         this.threadPool = threadPool;
         this.sandboxPersistenceService = sandboxPersistenceService;
@@ -37,9 +41,6 @@ public class TransportDeleteSandboxAction extends HandledTransportAction<DeleteS
     @Override
     protected void doExecute(Task task, DeleteSandboxRequest request, ActionListener<DeleteSandboxResponse> listener) {
         String name = request.getName();
-        threadPool.executor(ThreadPool.Names.GENERIC).execute(
-            () ->
-                sandboxPersistenceService.delete(name, listener)
-            );
+        threadPool.executor(ThreadPool.Names.GENERIC).execute(() -> sandboxPersistenceService.delete(name, listener));
     }
 }

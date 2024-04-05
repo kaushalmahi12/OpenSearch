@@ -9,9 +9,7 @@
 package org.opensearch.rest.action.sandbox;
 
 import org.opensearch.action.sandbox.DeleteSandboxRequest;
-import org.opensearch.action.sandbox.GetSandboxRequest;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestStatusToXContentListener;
@@ -30,9 +28,7 @@ public class RestDeleteSandboxAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return unmodifiableList(
-            asList(new Route(DELETE, "_sandbox/{name}"), new Route(DELETE, "_sandbox"))
-        );
+        return unmodifiableList(asList(new Route(DELETE, "_sandbox/{name}"), new Route(DELETE, "_sandbox")));
     }
 
     @Override
@@ -44,8 +40,6 @@ public class RestDeleteSandboxAction extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         String name = request.param("name");
         DeleteSandboxRequest deleteSandboxRequest = new DeleteSandboxRequest(name);
-        return channel -> {
-            client.deleteSandbox(deleteSandboxRequest, new RestStatusToXContentListener<>(channel));
-        };
+        return channel -> { client.deleteSandbox(deleteSandboxRequest, new RestStatusToXContentListener<>(channel)); };
     }
 }

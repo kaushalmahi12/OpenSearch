@@ -30,9 +30,7 @@ public class RestUpdateSandboxAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return unmodifiableList(
-            asList(new Route(POST, "_sandbox/{name}"), new Route(PUT, "_sandbox/{name}"))
-        );
+        return unmodifiableList(asList(new Route(POST, "_sandbox/{name}"), new Route(PUT, "_sandbox/{name}")));
     }
 
     @Override
@@ -44,19 +42,15 @@ public class RestUpdateSandboxAction extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         String name = request.param("name");
         UpdateSandboxRequest updateSandboxRequest = new UpdateSandboxRequest(name);
-        request.applyContentParser((parser) -> {
-            parseRestRequest(updateSandboxRequest, parser);
-        });
-        return channel -> {
-            client.updateSandbox(updateSandboxRequest, new RestStatusToXContentListener<>(channel));
-        };
+        request.applyContentParser((parser) -> { parseRestRequest(updateSandboxRequest, parser); });
+        return channel -> { client.updateSandbox(updateSandboxRequest, new RestStatusToXContentListener<>(channel)); };
     }
 
     private void parseRestRequest(UpdateSandboxRequest request, XContentParser parser) throws IOException {
-         final UpdateSandboxRequest updateSandboxRequest = UpdateSandboxRequest.fromXContent(parser);
-         request.setUpdatingName(updateSandboxRequest.getUpdatingName());
-         request.setSandboxAttributes(updateSandboxRequest.getSandboxAttributes());
-         request.setResourceConsumptionLimits(updateSandboxRequest.getResourceConsumptionLimits());
-         request.setEnforcement(updateSandboxRequest.getEnforcement());
+        final UpdateSandboxRequest updateSandboxRequest = UpdateSandboxRequest.fromXContent(parser);
+        request.setUpdatingName(updateSandboxRequest.getUpdatingName());
+        request.setSandboxAttributes(updateSandboxRequest.getSandboxAttributes());
+        request.setResourceConsumptionLimits(updateSandboxRequest.getResourceConsumptionLimits());
+        request.setEnforcement(updateSandboxRequest.getEnforcement());
     }
 }

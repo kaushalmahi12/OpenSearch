@@ -30,9 +30,7 @@ public class RestCreateSandboxAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return unmodifiableList(
-            asList(new Route(POST, "_sandbox/create"), new Route(PUT, "_sandbox/create"))
-        );
+        return unmodifiableList(asList(new Route(POST, "_sandbox/"), new Route(PUT, "_sandbox/")));
     }
 
     @Override
@@ -43,19 +41,15 @@ public class RestCreateSandboxAction extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         CreateSandboxRequest createSandboxRequest = new CreateSandboxRequest();
-        request.applyContentParser((parser) -> {
-            parseRestRequest(createSandboxRequest, parser);
-        });
-        return channel -> {
-            client.createSandbox(createSandboxRequest, new RestStatusToXContentListener<>(channel));
-        };
+        request.applyContentParser((parser) -> { parseRestRequest(createSandboxRequest, parser); });
+        return channel -> { client.createSandbox(createSandboxRequest, new RestStatusToXContentListener<>(channel)); };
     }
 
     private void parseRestRequest(CreateSandboxRequest request, XContentParser parser) throws IOException {
-         final CreateSandboxRequest createSandboxRequest = CreateSandboxRequest.fromXContent(parser);
-         request.setName(createSandboxRequest.getName());
-         request.setSandboxAttributes(createSandboxRequest.getSandboxAttributes());
-         request.setResourceConsumptionLimits(createSandboxRequest.getResourceConsumptionLimits());
-         request.setEnforcement(createSandboxRequest.getEnforcement());
+        final CreateSandboxRequest createSandboxRequest = CreateSandboxRequest.fromXContent(parser);
+        request.setName(createSandboxRequest.getName());
+        request.setSandboxAttributes(createSandboxRequest.getSandboxAttributes());
+        request.setResourceConsumptionLimits(createSandboxRequest.getResourceConsumptionLimits());
+        request.setEnforcement(createSandboxRequest.getEnforcement());
     }
 }

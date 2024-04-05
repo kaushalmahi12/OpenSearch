@@ -19,8 +19,6 @@ import org.opensearch.search.sandbox.Sandbox.ResourceConsumptionLimits;
 import org.opensearch.search.sandbox.Sandbox.SandboxAttributes;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Request class for CreateSandbox action
@@ -30,8 +28,8 @@ public class CreateSandboxRequest extends ActionRequest implements Writeable.Rea
     ResourceConsumptionLimits resourceConsumptionLimits;
     SandboxAttributes sandboxAttributes;
     String enforcement;
-    public CreateSandboxRequest() {
-    }
+
+    public CreateSandboxRequest() {}
 
     public CreateSandboxRequest(Sandbox sandbox) {
         this.name = sandbox.getName();

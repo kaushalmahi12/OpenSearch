@@ -26,9 +26,13 @@ public class TransportUpdateSandboxAction extends HandledTransportAction<UpdateS
     private final Persistable<Sandbox> sandboxPersistenceService;
 
     @Inject
-    public TransportUpdateSandboxAction(String actionName, TransportService transportService,
-                                        ActionFilters actionFilters, ThreadPool threadPool,
-                                        Persistable<Sandbox> sandboxPersistenceService) {
+    public TransportUpdateSandboxAction(
+        String actionName,
+        TransportService transportService,
+        ActionFilters actionFilters,
+        ThreadPool threadPool,
+        Persistable<Sandbox> sandboxPersistenceService
+    ) {
         super(UpdateSandboxAction.NAME, transportService, actionFilters, UpdateSandboxRequest::new);
         this.threadPool = threadPool;
         this.sandboxPersistenceService = sandboxPersistenceService;
@@ -36,16 +40,13 @@ public class TransportUpdateSandboxAction extends HandledTransportAction<UpdateS
 
     @Override
     protected void doExecute(Task task, UpdateSandboxRequest request, ActionListener<UpdateSandboxResponse> listener) {
-        Sandbox sandbox = Sandbox
-            .builder()
+        Sandbox sandbox = Sandbox.builder()
             .name(request.getUpdatingName())
             .sandboxAttributes(request.getSandboxAttributes())
             .resourceConsumptionLimit(request.getResourceConsumptionLimits())
             .enforcement(request.getEnforcement())
             .build(true);
-        threadPool.executor(ThreadPool.Names.GENERIC).execute(
-            () ->
-                sandboxPersistenceService.update(sandbox, request.getExistingName(), listener)
-            );
+        threadPool.executor(ThreadPool.Names.GENERIC)
+            .execute(() -> sandboxPersistenceService.update(sandbox, request.getExistingName(), listener));
     }
 }

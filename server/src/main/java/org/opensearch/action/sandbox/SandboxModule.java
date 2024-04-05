@@ -21,7 +21,8 @@ public class SandboxModule extends AbstractModule {
     @Override
     protected void configure() {
         // bind(Persistable.class).to(SandboxPersistenceService.class).asEagerSingleton();
-        bind(new TypeLiteral<Persistable<Sandbox>>() {}).to(SandboxPersistenceService.class).asEagerSingleton();
+        bind(new TypeLiteral<Persistable<Sandbox>>() {
+        }).to(SandboxPersistenceService.class).asEagerSingleton();
 
     }
 }

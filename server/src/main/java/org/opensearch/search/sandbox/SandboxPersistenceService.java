@@ -10,7 +10,10 @@ package org.opensearch.search.sandbox;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.sandbox.*;
+import org.opensearch.action.sandbox.CreateSandboxResponse;
+import org.opensearch.action.sandbox.DeleteSandboxResponse;
+import org.opensearch.action.sandbox.GetSandboxResponse;
+import org.opensearch.action.sandbox.UpdateSandboxResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateUpdateTask;
 import org.opensearch.cluster.metadata.Metadata;
@@ -26,12 +29,15 @@ import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.sandbox.Sandbox.SandboxAttributes;
 import org.opensearch.search.sandbox.Sandbox.SystemResource;
-import org.opensearch.tasks.Task;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import java.util.concurrent.atomic.DoubleAdder;
+import java.util.stream.Collectors;
 
 /**
  * Persistence Service for Sandbox objects
@@ -62,9 +68,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
     final ClusterManagerTaskThrottler.ThrottlingKey deleteSandboxThrottlingKey;
 
     @Inject
-    public SandboxPersistenceService(final ClusterService clusterService,
-                                     final Settings settings,
-                                     final ClusterSettings clusterSettings) {
+    public SandboxPersistenceService(final ClusterService clusterService, final Settings settings, final ClusterSettings clusterSettings) {
         this.clusterService = clusterService;
         this.createSandboxThrottlingKey = clusterService.registerClusterManagerTask(CREATE_SANDBOX_THROTTLING_KEY, true);
         this.deleteSandboxThrottlingKey = clusterService.registerClusterManagerTask(DELETE_SANDBOX_THROTTLING_KEY, true);
@@ -125,7 +129,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
      * @param currentClusterState
      * @return
      */
-    private ClusterState saveNewSandboxObjectInClusterState(final Sandbox sandbox, final ClusterState currentClusterState) {
+    ClusterState saveNewSandboxObjectInClusterState(final Sandbox sandbox, final ClusterState currentClusterState) {
         final Metadata metadata = currentClusterState.metadata();
         final List<Sandbox> previousSandboxes = metadata.getSandboxes();
         final List<Sandbox> newSandboxes = new ArrayList<>(previousSandboxes);
@@ -138,11 +142,13 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
 
         if (isIdenticalToExistingAttributes(sandbox, previousSandboxes)) {
             logger.error("New sandbox attributes are identical to one of the existing attributes. not creating a new sandbox.");
-            throw new RuntimeException("New sandbox attributes are identical to one of the existing attributes. not creating a new sandbox.");
+            throw new RuntimeException(
+                "New sandbox attributes are identical to one of the existing attributes. not creating a new sandbox."
+            );
         }
 
         double currentJVMUsage = 0;
-        for (Sandbox existingSandbox: previousSandboxes) {
+        for (Sandbox existingSandbox : previousSandboxes) {
             currentJVMUsage += existingSandbox.getResourceConsumptionLimits().getJvm().getAllocation();
         }
         double newJVMUsage = sandbox.getResourceConsumptionLimits().getJvm().getAllocation();
@@ -153,25 +159,33 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
             throw new RuntimeException("Can't create more than " + maxSandboxCount + " sandboxes in the system");
         }
         if (totalJVMUsage > 1) {
-            logger.error("Total JVM allocation will become {} after adding this sandbox, which goes above the max limit of 1.0", totalJVMUsage);
-            throw new RuntimeException("Total JVM allocation will become " + totalJVMUsage + " after adding this sandbox, which goes above the max limit of 1.0");
+            logger.error(
+                "Total JVM allocation will become {} after adding this sandbox, which goes above the max limit of 1.0",
+                totalJVMUsage
+            );
+            throw new RuntimeException(
+                "Total JVM allocation will become " + totalJVMUsage + " after adding this sandbox, which goes above the max limit of 1.0"
+            );
         }
 
         newSandboxes.add(sandbox);
-        return ClusterState.builder(currentClusterState)
-            .metadata(
-                Metadata.builder(metadata).sandboxes(newSandboxes).build()
-            ).build();
+        return ClusterState.builder(currentClusterState).metadata(Metadata.builder(metadata).sandboxes(newSandboxes).build()).build();
     }
 
     private boolean isIdenticalToExistingAttributes(final Sandbox sandbox, final List<Sandbox> existingSandboxes) {
         String sandboxIndicesValues = sandbox.getSandboxAttributes().getIndicesValues();
         HashSet<String> sandboxIndicesValuesSet = new HashSet<>(Arrays.asList(sandboxIndicesValues.split(",")));
+        HashSet<String> trimmedSandboxIndicesValuesSet = sandboxIndicesValuesSet.stream()
+            .map(String::trim)
+            .collect(Collectors.toCollection(HashSet::new));
 
-        for (Sandbox existingSandbox: existingSandboxes) {
-            String existingIndicesValues  = existingSandbox.getSandboxAttributes().getIndicesValues();
+        for (Sandbox existingSandbox : existingSandboxes) {
+            String existingIndicesValues = existingSandbox.getSandboxAttributes().getIndicesValues();
             HashSet<String> existingIndicesValuesSet = new HashSet<>(Arrays.asList(existingIndicesValues.split(",")));
-            if (sandboxIndicesValuesSet.equals(existingIndicesValuesSet)) {
+            HashSet<String> trimmedExistingIndicesValuesSet = existingIndicesValuesSet.stream()
+                .map(String::trim)
+                .collect(Collectors.toCollection(HashSet::new));
+            if (trimmedSandboxIndicesValuesSet.equals(trimmedExistingIndicesValuesSet)) {
                 return true;
             }
         }
@@ -185,7 +199,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
 
         if (targetSandboxList.isEmpty()) {
             logger.warn("No sandbox exists with the provided name: {}", existingName);
-            Exception e = new RuntimeException(String.format("No sandbox exists with the provided name: %s", existingName));
+            Exception e = new RuntimeException("No sandbox exists with the provided name: " + existingName);
             UpdateSandboxResponse response = new UpdateSandboxResponse();
             response.setRestStatus(RestStatus.NOT_FOUND);
             listener.onFailure(e);
@@ -194,7 +208,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         Sandbox existingSandbox = targetSandboxList.get(0);
 
         // build the sandbox with updated fields
-        String name = sandbox.getName() == null? existingSandbox.getName():sandbox.getName();
+        String name = sandbox.getName() == null ? existingSandbox.getName() : sandbox.getName();
         SandboxAttributes sandboxAttributes;
         if (sandbox.getSandboxAttributes() == null) {
             sandboxAttributes = existingSandbox.getSandboxAttributes();
@@ -207,21 +221,18 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         } else {
             SystemResource jvm = existingSandbox.getResourceConsumptionLimits().getJvm();
             if (sandbox.getResourceConsumptionLimits().getJvm() != null) {
-                jvm = SystemResource
-                    .builder()
+                jvm = SystemResource.builder()
                     .name("jvm")
                     .allocation(sandbox.getResourceConsumptionLimits().getJvm().getAllocation())
                     .build();
             }
             resourceConsumptionLimits = new Sandbox.ResourceConsumptionLimits(jvm);
         }
-        String enforcement = sandbox.getEnforcement() == null? existingSandbox.getEnforcement():sandbox.getEnforcement();
+        String enforcement = sandbox.getEnforcement() == null ? existingSandbox.getEnforcement() : sandbox.getEnforcement();
 
         String new_id = String.valueOf(Objects.hash(name, sandboxAttributes, resourceConsumptionLimits, enforcement));
 
-
-        Sandbox updatedSandbox = Sandbox
-            .builder()
+        Sandbox updatedSandbox = Sandbox.builder()
             .id(new_id)
             .name(name)
             .sandboxAttributes(sandboxAttributes)
@@ -266,10 +277,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         List<Sandbox> currentSandboxes = currentState.getMetadata().getSandboxes();
         currentSandboxes.remove(currentSandbox);
         currentSandboxes.add(updatedSandbox);
-        return ClusterState.builder(currentState)
-            .metadata(
-                Metadata.builder(metadata).sandboxes(currentSandboxes).build()
-            ).build();
+        return ClusterState.builder(currentState).metadata(Metadata.builder(metadata).sandboxes(currentSandboxes).build()).build();
     }
 
     public <U extends ActionResponse> void delete(String name, ActionListener<U> listener) {
@@ -300,8 +308,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
             public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
                 final List<Sandbox> oldSandboxes = oldState.metadata().getSandboxes();
                 final List<Sandbox> newSandboxes = newState.metadata().getSandboxes();
-                final List<Sandbox> deletedSandboxes = oldSandboxes
-                    .stream()
+                final List<Sandbox> deletedSandboxes = oldSandboxes.stream()
                     .filter(sb -> !newSandboxes.contains(sb))
                     .collect(Collectors.toList());
                 DeleteSandboxResponse response = new DeleteSandboxResponse(deletedSandboxes);
@@ -318,20 +325,14 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         if (name == null || name.equals("")) {
             resultSandboxes = new ArrayList<>();
         } else {
-            boolean sandboxWithIdExisted = previousSandboxes.stream().anyMatch(sb -> sb.getName().equals(name));
-            if (!sandboxWithIdExisted) {
+            boolean sandboxWithNameExisted = previousSandboxes.stream().anyMatch(sb -> sb.getName().equals(name));
+            if (!sandboxWithNameExisted) {
                 logger.error("The sandbox with provided name {} doesn't exist", name);
-                throw new RuntimeException(String.format("No sandbox exists with the provided name: %s", name));
+                throw new RuntimeException("No sandbox exists with the provided name: " + name);
             }
-            resultSandboxes = previousSandboxes
-                .stream()
-                .filter(sb -> !sb.getName().equals(name))
-                .collect(Collectors.toList());
+            resultSandboxes = previousSandboxes.stream().filter(sb -> !sb.getName().equals(name)).collect(Collectors.toList());
         }
-        return ClusterState.builder(currentClusterState)
-            .metadata(
-                Metadata.builder(metadata).sandboxes(resultSandboxes).build()
-            ).build();
+        return ClusterState.builder(currentClusterState).metadata(Metadata.builder(metadata).sandboxes(resultSandboxes).build()).build();
     }
 
     public <U extends ActionResponse> void get(String name, ActionListener<U> listener) {
@@ -339,7 +340,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         List<Sandbox> resultSandboxes = getFromClusterStateMetadata(name, currentState);
         if (resultSandboxes.isEmpty() && name != null && !name.isEmpty()) {
             logger.warn("No sandbox exists with the provided name: {}", name);
-            Exception e = new RuntimeException(String.format("No sandbox exists with the provided name: %s", name));
+            Exception e = new RuntimeException("No sandbox exists with the provided name: " + name);
             GetSandboxResponse response = new GetSandboxResponse();
             response.setRestStatus(RestStatus.NOT_FOUND);
             listener.onFailure(e);
@@ -356,9 +357,7 @@ public class SandboxPersistenceService implements Persistable<Sandbox> {
         if (name == null || name.equals("")) {
             resultSandboxes = currentSandboxes;
         } else {
-            resultSandboxes.addAll(currentSandboxes.stream()
-                .filter(sb -> sb.getName().equals(name))
-                .collect(Collectors.toList()));
+            resultSandboxes.addAll(currentSandboxes.stream().filter(sb -> sb.getName().equals(name)).collect(Collectors.toList()));
         }
         return resultSandboxes;
     }

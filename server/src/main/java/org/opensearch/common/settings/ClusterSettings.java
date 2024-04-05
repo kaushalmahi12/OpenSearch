@@ -706,7 +706,7 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 CpuBasedAdmissionControllerSettings.SEARCH_CPU_USAGE_LIMIT,
                 IndicesService.CLUSTER_INDEX_RESTRICT_REPLICATION_TYPE_SETTING,
 
-                //Query Sandbox Settings
+                // Query Sandbox Settings
                 SandboxPersistenceService.MAX_SANDBOX_COUNT
             )
         )

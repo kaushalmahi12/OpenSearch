@@ -53,6 +53,10 @@ public class CreateSandboxResponse extends ActionResponse implements ToXContent,
         this.restStatus = status;
     }
 
+    public Sandbox getSandbox() {
+        return sandbox;
+    }
+
     @Override
     public RestStatus status() {
         return restStatus;

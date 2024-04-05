@@ -28,9 +28,7 @@ public class RestGetSandboxAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return unmodifiableList(
-            asList(new Route(GET, "_sandbox/{name}"), new Route(GET, "_sandbox/"))
-        );
+        return unmodifiableList(asList(new Route(GET, "_sandbox/{name}"), new Route(GET, "_sandbox/")));
     }
 
     @Override
@@ -42,8 +40,6 @@ public class RestGetSandboxAction extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         String name = request.param("name");
         GetSandboxRequest getSandboxRequest = new GetSandboxRequest(name);
-        return channel -> {
-            client.getSandbox(getSandboxRequest, new RestStatusToXContentListener<>(channel));
-        };
+        return channel -> { client.getSandbox(getSandboxRequest, new RestStatusToXContentListener<>(channel)); };
     }
 }

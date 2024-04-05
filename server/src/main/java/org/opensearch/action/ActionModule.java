@@ -254,11 +254,11 @@ import org.opensearch.action.main.TransportMainAction;
 import org.opensearch.action.sandbox.CreateSandboxAction;
 import org.opensearch.action.sandbox.DeleteSandboxAction;
 import org.opensearch.action.sandbox.GetSandboxAction;
-import org.opensearch.action.sandbox.UpdateSandboxAction;
 import org.opensearch.action.sandbox.TransportCreateSandboxAction;
 import org.opensearch.action.sandbox.TransportDeleteSandboxAction;
 import org.opensearch.action.sandbox.TransportGetSandboxAction;
 import org.opensearch.action.sandbox.TransportUpdateSandboxAction;
+import org.opensearch.action.sandbox.UpdateSandboxAction;
 import org.opensearch.action.search.ClearScrollAction;
 import org.opensearch.action.search.CreatePitAction;
 import org.opensearch.action.search.DeletePitAction;
@@ -774,7 +774,7 @@ public class ActionModule extends AbstractModule {
         actions.register(GetSearchPipelineAction.INSTANCE, GetSearchPipelineTransportAction.class);
         actions.register(DeleteSearchPipelineAction.INSTANCE, DeleteSearchPipelineTransportAction.class);
 
-        //Sandbox actions
+        // Sandbox actions
         actions.register(CreateSandboxAction.INSTANCE, TransportCreateSandboxAction.class);
         actions.register(DeleteSandboxAction.INSTANCE, TransportDeleteSandboxAction.class);
         actions.register(GetSandboxAction.INSTANCE, TransportGetSandboxAction.class);

@@ -44,7 +44,7 @@ public class UpdateSandboxRequest extends ActionRequest implements Writeable.Rea
 
     public UpdateSandboxRequest(StreamInput in) throws IOException {
         super(in);
-        existingName = in.readString();
+        existingName = in.readOptionalString();
         updatingName = in.readOptionalString();
         SystemResource jvm = null;
         if (in.readBoolean()) {
@@ -113,10 +113,11 @@ public class UpdateSandboxRequest extends ActionRequest implements Writeable.Rea
     public void setResourceConsumptionLimits(ResourceConsumptionLimits resourceConsumptionLimits) {
         this.resourceConsumptionLimits = resourceConsumptionLimits;
     }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeString(existingName);
+        out.writeOptionalString(existingName);
         out.writeOptionalString(updatingName);
         if (resourceConsumptionLimits == null) {
             out.writeBoolean(false);

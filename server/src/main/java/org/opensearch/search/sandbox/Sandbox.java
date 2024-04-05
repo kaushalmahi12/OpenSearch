@@ -17,10 +17,8 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * This is the POJO for Sandbox
@@ -39,14 +37,20 @@ public class Sandbox implements ToXContentObject, Writeable {
     public static final String JVM = "jvm";
     public static final String ENFORCEMENT = "enforcement";
 
-    private Sandbox(String _id, String name, SandboxAttributes sandboxAttributes, ResourceConsumptionLimits resourceConsumptionLimits, String enforcement, boolean optionalSandboxFields) {
+    private Sandbox(
+        String _id,
+        String name,
+        SandboxAttributes sandboxAttributes,
+        ResourceConsumptionLimits resourceConsumptionLimits,
+        String enforcement,
+        boolean optionalSandboxFields
+    ) {
         if (!optionalSandboxFields) {
             Objects.requireNonNull(_id, "[_id] field should not be empty for sandbox");
             Objects.requireNonNull(name, "[name] field should not be empty for sandbox");
             Objects.requireNonNull(sandboxAttributes, "[selectionAttributes] field should not be empty for sandbox");
             Objects.requireNonNull(resourceConsumptionLimits, "[resourceConsumptionLimits] field should not be empty for sandbox");
             Objects.requireNonNull(enforcement, "[enforcement] field should not be empty for sandbox");
-
         }
 
         isValidSandbox(name, enforcement);
@@ -57,16 +61,8 @@ public class Sandbox implements ToXContentObject, Writeable {
         this.enforcement = enforcement;
     }
 
-//    private Sandbox(String _id, String name, SandboxAttributes sandboxAttributes, ResourceConsumptionLimits resourceConsumptionLimits, String enforcement, boolean updateRequest) {
-//        this._id = _id;
-//        this.name = name;
-//        this.sandboxAttributes = sandboxAttributes;
-//        this.resourceConsumptionLimits = resourceConsumptionLimits;
-//        this.enforcement = enforcement;
-//    }
-
     public Sandbox(StreamInput in) throws IOException {
-        _id = in.readString();
+        // _id = in.readString();
         name = in.readString();
         resourceConsumptionLimits = new ResourceConsumptionLimits(in);
         sandboxAttributes = new SandboxAttributes(in);
@@ -79,11 +75,16 @@ public class Sandbox implements ToXContentObject, Writeable {
             if (name.isEmpty()) {
                 throw new IllegalArgumentException("Sandbox name cannot be empty");
             }
-            if (name.startsWith("-")||name.startsWith("_")) {
+            if (name.startsWith("-") || name.startsWith("_")) {
                 throw new IllegalArgumentException("Sandbox name cannot start with '_' or '-'.");
             }
+            if (!name.toLowerCase(Locale.ROOT).equals(name)) {
+                throw new IllegalArgumentException("Sandbox name must be lowercase");
+            }
             if (name.matches(".*[ ,:\"*+/\\\\|?#><].*")) {
-                throw new IllegalArgumentException("Sandbox names can't contain spaces, commas, quotes, slashes, :, *, +, |, ?, #, >, or <");
+                throw new IllegalArgumentException(
+                    "Sandbox names can't contain spaces, commas, quotes, slashes, :, *, +, |, ?, #, >, or <"
+                );
             }
         }
         if (enforcement != null) {
@@ -99,11 +100,16 @@ public class Sandbox implements ToXContentObject, Writeable {
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(_id);
         writeToOutputStream(out, name, resourceConsumptionLimits, sandboxAttributes, enforcement);
     }
 
-    public static void writeToOutputStream(StreamOutput out,String name, ResourceConsumptionLimits resourceConsumptionLimits, SandboxAttributes sandboxAttributes, String enforcement) throws IOException {
+    public static void writeToOutputStream(
+        StreamOutput out,
+        String name,
+        ResourceConsumptionLimits resourceConsumptionLimits,
+        SandboxAttributes sandboxAttributes,
+        String enforcement
+    ) throws IOException {
         out.writeString(name);
         resourceConsumptionLimits.writeTo(out);
         sandboxAttributes.writeTo(out);
@@ -230,9 +236,13 @@ public class Sandbox implements ToXContentObject, Writeable {
             if (indicesValues.startsWith("*")) {
                 throw new IllegalArgumentException("Attribute value cannot start with patterns");
             }
-            if (indicesValues.matches(".*[:, \"+/\\\\|#?<>].*")) {
-                throw new IllegalArgumentException("Attribute value can't contain spaces, commas, quotes, slashes, :, +, |, ?, #, >, or <");
+            if (indicesValues.matches(".*[:\"+/\\\\|#?<>].*")) {
+                throw new IllegalArgumentException("Attribute value can't contain quotes, slashes, :, +, |, ?, #, >, or <");
             }
+        }
+
+        public static Builder builder() {
+            return new Builder();
         }
 
         public String getIndicesValues() {
@@ -244,6 +254,7 @@ public class Sandbox implements ToXContentObject, Writeable {
          */
         public static class Builder {
             String indicesValues;
+
             public Builder() {}
 
             Builder indicesValues(String indicesValues) {
@@ -302,18 +313,18 @@ public class Sandbox implements ToXContentObject, Writeable {
         String name;
 
         SystemResource(double allocation, String name) {
-            isValid(allocation, name);
+            isValidAllocation(allocation, name);
             this.allocation = allocation;
             this.name = name;
         }
 
-        public SystemResource(StreamInput in) throws  IOException {
+        public SystemResource(StreamInput in) throws IOException {
             this.allocation = in.readDouble();
             this.name = in.readString();
-            isValid(allocation, name);
+            isValidAllocation(allocation, name);
         }
 
-        private static void isValid(double allocation, String name) {
+        private static void isValidAllocation(double allocation, String name) {
             if (allocation < 0 || allocation > 1) {
                 throw new IllegalArgumentException("System resource allocation should be between 0 and 1.");
             }
@@ -359,15 +370,17 @@ public class Sandbox implements ToXContentObject, Writeable {
             String name;
             double allocation;
 
-            Builder() {
-            }
+            Builder() {}
 
             Builder name(String name) {
                 this.name = name;
                 return this;
             }
 
-            Builder allocation(double allocation) { this.allocation = allocation; return this; }
+            Builder allocation(double allocation) {
+                this.allocation = allocation;
+                return this;
+            }
 
             public static SystemResource fromXContent(XContentParser parser, String name) throws IOException {
                 Builder builder = new Builder();
@@ -449,6 +462,7 @@ public class Sandbox implements ToXContentObject, Writeable {
                 }
                 return builder.build();
             }
+
             ResourceConsumptionLimits build() {
                 return new ResourceConsumptionLimits(jvm);
             }

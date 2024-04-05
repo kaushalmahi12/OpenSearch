@@ -30,6 +30,7 @@ public class DeleteSandboxResponse extends ActionResponse implements ToXContent,
     public DeleteSandboxResponse() {
         this.sandboxes = null;
     }
+
     public DeleteSandboxResponse(StreamInput in) throws IOException {
         this.sandboxes = in.readList(Sandbox::new);
     }
@@ -47,7 +48,7 @@ public class DeleteSandboxResponse extends ActionResponse implements ToXContent,
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
         builder.startArray("deleted");
-        for (Sandbox sb: sandboxes) {
+        for (Sandbox sb : sandboxes) {
             sb.toXContent(builder, params);
         }
         builder.endArray();

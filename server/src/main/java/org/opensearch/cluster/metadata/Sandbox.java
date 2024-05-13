@@ -19,14 +19,17 @@ import org.opensearch.core.xcontent.ConstructingObjectParser;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.search.sandboxing.SandboxResourceType;
 
 import java.io.IOException;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
 /**
- * Class to define the ResourceLimitGroup schema
+ * Class to define the Sandbox schema
  * {
  *     "name": "analytics",
  *     "resourceLimits": [
@@ -38,23 +41,26 @@ import java.util.Objects;
  * }
  */
 @ExperimentalApi
-public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> implements ToXContentObject {
+public class Sandbox extends AbstractDiffable<Sandbox> implements ToXContentObject {
 
     public static final int MAX_CHARS_ALLOWED_IN_NAME = 50;
     private final String name;
     private final List<ResourceLimit> resourceLimits;
-    private final ResourceLimitGroupMode mode;
+    private final SandboxMode mode;
 
-    private static final List<String> ALLOWED_RESOURCES = List.of("jvm");
+    private static final EnumSet<SandboxResourceType> ALLOWED_RESOURCES = EnumSet.of(SandboxResourceType.JVM);
 
     public static final ParseField NAME_FIELD = new ParseField("name");
     public static final ParseField RESOURCE_LIMITS_FIELD = new ParseField("resourceLimits");
     public static final ParseField MODE_FIELD = new ParseField("mode");
 
+    private static final int numberOfAvailableProcessors = Runtime.getRuntime().availableProcessors();
+    private static final long totalAvailableJvmMemory = Runtime.getRuntime().totalMemory();
+
     @SuppressWarnings("unchecked")
-    private static final ConstructingObjectParser<ResourceLimitGroup, Void> PARSER = new ConstructingObjectParser<>(
-        "ResourceLimitGroupParser",
-        args -> new ResourceLimitGroup((String) args[0], (List<ResourceLimit>) args[1], (String) args[2])
+    private static final ConstructingObjectParser<Sandbox, Void> PARSER = new ConstructingObjectParser<>(
+        "SandboxParser",
+        args -> new Sandbox((String) args[0], (List<ResourceLimit>) args[1], (String) args[2])
     );
 
     static {
@@ -67,39 +73,40 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
         PARSER.declareString(ConstructingObjectParser.constructorArg(), MODE_FIELD);
     }
 
-    public ResourceLimitGroup(final String name, final List<ResourceLimit> resourceLimits, final String modeName) {
-        Objects.requireNonNull(name, "ResourceLimitGroup.name can't be null");
-        Objects.requireNonNull(resourceLimits, "ResourceLimitGroup.resourceLimits can't be null");
+    public Sandbox(final String name, final List<ResourceLimit> resourceLimits, final String modeName) {
+        Objects.requireNonNull(name, "Sandbox.name can't be null");
+        Objects.requireNonNull(resourceLimits, "Sandbox.resourceLimits can't be null");
 
         if (name.length() > MAX_CHARS_ALLOWED_IN_NAME) {
-            throw new IllegalArgumentException("ResourceLimitGroup.name shouldn't be more than 50 chars long");
+            throw new IllegalArgumentException("Sandbox.name shouldn't be more than 50 chars long");
         }
 
         if (resourceLimits.isEmpty()) {
-            throw new IllegalArgumentException("ResourceLimitGroup.resourceLimits should at least have 1 resource limit");
+            throw new IllegalArgumentException("Sandbox.resourceLimits should at least have 1 resource limit");
         }
 
         this.name = name;
         this.resourceLimits = resourceLimits;
-        this.mode = ResourceLimitGroupMode.fromName(modeName);
+        this.mode = SandboxMode.fromName(modeName);
     }
 
-    public ResourceLimitGroup(StreamInput in) throws IOException {
+    public Sandbox(StreamInput in) throws IOException {
         this(in.readString(), in.readList(ResourceLimit::new), in.readString());
     }
 
     /**
      * Class to hold the system resource limits;
      * sample Schema
-     *
      */
     @ExperimentalApi
     public static class ResourceLimit implements Writeable, ToXContentObject {
-        private final String resourceName;
-        private final Double value;
+        private final SandboxResourceType resourceType;
+        private final Double threshold;
+        private final Long thresholdInLong;
 
-        static final ParseField RESOURCE_NAME_FIELD = new ParseField("resourceName");
-        static final ParseField RESOURCE_VALUE_FIELD = new ParseField("value");
+        static final ParseField RESOURCE_TYPE_FIELD = new ParseField("resourceType");
+        static final ParseField THRESHOLD_FIELD = new ParseField("threshold");
+        static final ParseField THRESHOLD_IN_LONG_FIELD = new ParseField("thresholdInLong");
 
         public static final ConstructingObjectParser<ResourceLimit, Void> PARSER = new ConstructingObjectParser<>(
             "ResourceLimitParser",
@@ -107,25 +114,36 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
         );
 
         static {
-            PARSER.declareString(ConstructingObjectParser.constructorArg(), RESOURCE_NAME_FIELD);
-            PARSER.declareDouble(ConstructingObjectParser.constructorArg(), RESOURCE_VALUE_FIELD);
+            PARSER.declareString(ConstructingObjectParser.constructorArg(), RESOURCE_TYPE_FIELD);
+            PARSER.declareDouble(ConstructingObjectParser.constructorArg(), THRESHOLD_FIELD);
+            PARSER.declareDouble(ConstructingObjectParser.constructorArg(), THRESHOLD_IN_LONG_FIELD);
         }
 
-        public ResourceLimit(String resourceName, Double value) {
-            Objects.requireNonNull(resourceName, "resourceName can't be null");
-            Objects.requireNonNull(value, "resource value can't be null");
+        public ResourceLimit(String resourceType, Double threshold) {
+            Objects.requireNonNull(resourceType, "resourceName can't be null");
+            Objects.requireNonNull(threshold, "resource value can't be null");
 
-            if (Double.compare(value, 1.0) > 0) {
+            if (Double.compare(threshold, 1.0) > 0) {
                 throw new IllegalArgumentException("resource value should be less than 1.0");
             }
 
-            if (!ALLOWED_RESOURCES.contains(resourceName.toLowerCase(Locale.ROOT))) {
-                throw new IllegalArgumentException(
-                    "resource has to be valid, valid resources " + ALLOWED_RESOURCES.stream().reduce((x, e) -> x + ", " + e).get()
-                );
+            if (!ALLOWED_RESOURCES.contains(SandboxResourceType.fromString(resourceType.toUpperCase(Locale.ROOT)))) {
+                throw new IllegalArgumentException("Invalid resource, valid resources : " + ALLOWED_RESOURCES);
             }
-            this.resourceName = resourceName;
-            this.value = value;
+            this.resourceType = SandboxResourceType.fromString(resourceType);
+            this.threshold = threshold;
+            this.thresholdInLong = calculateThresholdInLong(threshold);
+        }
+
+        public ResourceLimit(Sandbox resourceType, Double threshold) {
+            new ResourceLimit(resourceType.toString(), threshold);
+        }
+
+        private Long calculateThresholdInLong(Double threshold) {
+            if (this.resourceType == SandboxResourceType.JVM) {
+                return (long) (threshold * totalAvailableJvmMemory);
+            }
+            return 0L;
         }
 
         public ResourceLimit(StreamInput in) throws IOException {
@@ -139,8 +157,8 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
          */
         @Override
         public void writeTo(StreamOutput out) throws IOException {
-            out.writeString(resourceName);
-            out.writeDouble(value);
+            out.writeString(resourceType.toString());
+            out.writeDouble(threshold);
         }
 
         /**
@@ -152,8 +170,8 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
         @Override
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
             builder.startObject();
-            builder.field(RESOURCE_NAME_FIELD.getPreferredName(), resourceName);
-            builder.field(RESOURCE_VALUE_FIELD.getPreferredName(), value);
+            builder.field(RESOURCE_TYPE_FIELD.getPreferredName(), resourceType);
+            builder.field(THRESHOLD_FIELD.getPreferredName(), threshold);
             builder.endObject();
             return builder;
         }
@@ -167,20 +185,24 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             ResourceLimit that = (ResourceLimit) o;
-            return Objects.equals(resourceName, that.resourceName) && Objects.equals(value, that.value);
+            return Objects.equals(resourceType, that.resourceType) && Objects.equals(threshold, that.threshold);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(resourceName, value);
+            return Objects.hash(resourceType, threshold);
         }
 
-        public String getResourceName() {
-            return resourceName;
+        public SandboxResourceType getResourceType() {
+            return resourceType;
         }
 
-        public Double getValue() {
-            return value;
+        public Double getThreshold() {
+            return threshold;
+        }
+
+        public Long getThresholdInLong() {
+            return thresholdInLong;
         }
     }
 
@@ -188,14 +210,14 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
      * This enum models the different sandbox modes
      */
     @ExperimentalApi
-    public static enum ResourceLimitGroupMode {
+    public enum SandboxMode {
         SOFT("soft"),
         ENFORCED("enforced"),
         MONITOR("monitor");
 
         private final String name;
 
-        ResourceLimitGroupMode(String mode) {
+        SandboxMode(String mode) {
             this.name = mode;
         }
 
@@ -203,7 +225,7 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
             return name;
         }
 
-        public static ResourceLimitGroupMode fromName(String s) {
+        public static SandboxMode fromName(String s) {
             switch (s) {
                 case "soft":
                     return SOFT;
@@ -212,7 +234,7 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
                 case "monitor":
                     return MONITOR;
                 default:
-                    throw new IllegalArgumentException("Invalid value for ResourceLimitGroupMode: " + s);
+                    throw new IllegalArgumentException("Invalid value for SandboxMode: " + s);
             }
         }
 
@@ -246,19 +268,19 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
         return builder;
     }
 
-    public static ResourceLimitGroup fromXContent(final XContentParser parser) throws IOException {
+    public static Sandbox fromXContent(final XContentParser parser) throws IOException {
         return PARSER.parse(parser, null);
     }
 
-    public static Diff<ResourceLimitGroup> readDiff(final StreamInput in) throws IOException {
-        return readDiffFrom(ResourceLimitGroup::new, in);
+    public static Diff<Sandbox> readDiff(final StreamInput in) throws IOException {
+        return readDiffFrom(Sandbox::new, in);
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        ResourceLimitGroup that = (ResourceLimitGroup) o;
+        Sandbox that = (Sandbox) o;
         return Objects.equals(name, that.name) && Objects.equals(resourceLimits, that.resourceLimits);
     }
 
@@ -271,7 +293,7 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
         return name;
     }
 
-    public ResourceLimitGroupMode getMode() {
+    public SandboxMode getMode() {
         return mode;
     }
 
@@ -279,10 +301,10 @@ public class ResourceLimitGroup extends AbstractDiffable<ResourceLimitGroup> imp
         return resourceLimits;
     }
 
-    public ResourceLimit getResourceLimitFor(String resourceName) {
+    public ResourceLimit getResourceLimitFor(SandboxResourceType resourceType) {
         return resourceLimits.stream()
-            .filter(resourceLimit -> resourceLimit.getResourceName().equals(resourceName))
+            .filter(resourceLimit -> resourceLimit.getResourceType().equals(resourceType))
             .findFirst()
-            .orElseGet(() -> new ResourceLimit(resourceName, 100.0));
+            .orElseGet(() -> new ResourceLimit(resourceType.toString(), 100.0));
     }
 }

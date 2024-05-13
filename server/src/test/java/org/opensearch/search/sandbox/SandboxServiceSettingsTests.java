@@ -10,14 +10,14 @@ package org.opensearch.search.sandbox;
 
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.search.resource_limit_group.ResourceLimitGroupServiceSettings;
+import org.opensearch.search.sandboxing.SandboxServiceSettings;
 import org.opensearch.test.OpenSearchTestCase;
 
-import static org.opensearch.search.resource_limit_group.ResourceLimitGroupServiceSettings.NODE_CANCELLATION_THRESHOLD_SETTING_NAME;
-import static org.opensearch.search.resource_limit_group.ResourceLimitGroupServiceSettings.NODE_REJECTION_THRESHOLD_SETTING_NAME;
-import static org.opensearch.search.resource_limit_group.ResourceLimitGroupServiceSettings.RESOURCE_LIMIT_GROUP_COUNT_SETTING_NAME;
+import static org.opensearch.search.sandboxing.SandboxServiceSettings.NODE_CANCELLATION_THRESHOLD_SETTING_NAME;
+import static org.opensearch.search.sandboxing.SandboxServiceSettings.NODE_REJECTION_THRESHOLD_SETTING_NAME;
+import static org.opensearch.search.sandboxing.SandboxServiceSettings.RESOURCE_LIMIT_GROUP_COUNT_SETTING_NAME;
 
-public class ResourceLimitGroupServiceSettingsTests extends OpenSearchTestCase {
+public class SandboxServiceSettingsTests extends OpenSearchTestCase {
 
     /**
      * Tests the valid value of {@code node.sandbox.max_count}
@@ -25,7 +25,7 @@ public class ResourceLimitGroupServiceSettingsTests extends OpenSearchTestCase {
     public void testValidMaxSandboxCountSetting() {
         Settings settings = Settings.builder().put(RESOURCE_LIMIT_GROUP_COUNT_SETTING_NAME, 100).build();
         ClusterSettings cs = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        ResourceLimitGroupServiceSettings resourceLimitGroupServiceSettings = new ResourceLimitGroupServiceSettings(settings, cs);
+        SandboxServiceSettings resourceLimitGroupServiceSettings = new SandboxServiceSettings(settings, cs);
         assertEquals(100, resourceLimitGroupServiceSettings.getMaxResourceLimitGroupCount());
     }
 
@@ -35,7 +35,7 @@ public class ResourceLimitGroupServiceSettingsTests extends OpenSearchTestCase {
     public void testInValidMaxSandboxCountSetting() {
         Settings settings = Settings.builder().put(RESOURCE_LIMIT_GROUP_COUNT_SETTING_NAME, -100).build();
         ClusterSettings cs = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        assertThrows(IllegalArgumentException.class, () -> new ResourceLimitGroupServiceSettings(settings, cs));
+        assertThrows(IllegalArgumentException.class, () -> new SandboxServiceSettings(settings, cs));
     }
 
     /**
@@ -44,7 +44,7 @@ public class ResourceLimitGroupServiceSettingsTests extends OpenSearchTestCase {
     public void testValidNodeLevelRejectionThreshold() {
         Settings settings = Settings.builder().put(NODE_REJECTION_THRESHOLD_SETTING_NAME, 0.80).build();
         ClusterSettings cs = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        ResourceLimitGroupServiceSettings resourceLimitGroupServiceSettings = new ResourceLimitGroupServiceSettings(settings, cs);
+        SandboxServiceSettings resourceLimitGroupServiceSettings = new SandboxServiceSettings(settings, cs);
         assertEquals(0.80, resourceLimitGroupServiceSettings.getNodeLevelJvmRejectionThreshold(), 1e-9);
     }
 
@@ -55,7 +55,7 @@ public class ResourceLimitGroupServiceSettingsTests extends OpenSearchTestCase {
     public void testInValidNodeLevelRejectionThresholdCase1() {
         Settings settings = Settings.builder().put(NODE_REJECTION_THRESHOLD_SETTING_NAME, 0.80).build();
         ClusterSettings cs = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        ResourceLimitGroupServiceSettings resourceLimitGroupServiceSettings = new ResourceLimitGroupServiceSettings(settings, cs);
+        SandboxServiceSettings resourceLimitGroupServiceSettings = new SandboxServiceSettings(settings, cs);
         assertThrows(IllegalArgumentException.class, () -> resourceLimitGroupServiceSettings.setNodeLevelJvmRejectionThreshold(0.95));
     }
 
@@ -69,14 +69,14 @@ public class ResourceLimitGroupServiceSettingsTests extends OpenSearchTestCase {
             .put(NODE_CANCELLATION_THRESHOLD_SETTING_NAME, 0.80)
             .build();
         ClusterSettings cs = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        ResourceLimitGroupServiceSettings resourceLimitGroupServiceSettings = new ResourceLimitGroupServiceSettings(settings, cs);
+        SandboxServiceSettings resourceLimitGroupServiceSettings = new SandboxServiceSettings(settings, cs);
         assertThrows(IllegalArgumentException.class, () -> resourceLimitGroupServiceSettings.setNodeLevelJvmRejectionThreshold(0.85));
     }
 
     /**
      * Tests the invalid value for {@code query_sandbox.node.rejection_threshold}
      * When the value is set more than {@code query_sandbox.node.cancellation_threshold} accidentally during
-     * new feature development. This test is to ensure that {@link ResourceLimitGroupServiceSettings} holds the
+     * new feature development. This test is to ensure that {@link SandboxServiceSettings} holds the
      * invariant {@code nodeLevelRejectionThreshold < nodeLevelCancellationThreshold}
      */
     public void testInValidInstantiationOfQuerySandboxServiceSettings() {
@@ -86,7 +86,7 @@ public class ResourceLimitGroupServiceSettingsTests extends OpenSearchTestCase {
             .build();
         ClusterSettings cs = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
 
-        assertThrows(IllegalArgumentException.class, () -> new ResourceLimitGroupServiceSettings(settings, cs));
+        assertThrows(IllegalArgumentException.class, () -> new SandboxServiceSettings(settings, cs));
     }
 
     /**
@@ -95,7 +95,7 @@ public class ResourceLimitGroupServiceSettingsTests extends OpenSearchTestCase {
     public void testValidNodeLevelCancellationThreshold() {
         Settings settings = Settings.builder().put(NODE_CANCELLATION_THRESHOLD_SETTING_NAME, 0.80).build();
         ClusterSettings cs = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        ResourceLimitGroupServiceSettings resourceLimitGroupServiceSettings = new ResourceLimitGroupServiceSettings(settings, cs);
+        SandboxServiceSettings resourceLimitGroupServiceSettings = new SandboxServiceSettings(settings, cs);
         assertEquals(0.80, resourceLimitGroupServiceSettings.getNodeLevelJvmRejectionThreshold(), 1e-9);
     }
 
@@ -106,7 +106,7 @@ public class ResourceLimitGroupServiceSettingsTests extends OpenSearchTestCase {
     public void testInValidNodeLevelCancellationThresholdCase1() {
         Settings settings = Settings.builder().put(NODE_CANCELLATION_THRESHOLD_SETTING_NAME, 0.80).build();
         ClusterSettings cs = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        ResourceLimitGroupServiceSettings resourceLimitGroupServiceSettings = new ResourceLimitGroupServiceSettings(settings, cs);
+        SandboxServiceSettings resourceLimitGroupServiceSettings = new SandboxServiceSettings(settings, cs);
         assertThrows(IllegalArgumentException.class, () -> resourceLimitGroupServiceSettings.setNodeLevelJvmRejectionThreshold(0.96));
     }
 
@@ -120,7 +120,7 @@ public class ResourceLimitGroupServiceSettingsTests extends OpenSearchTestCase {
             .put(NODE_CANCELLATION_THRESHOLD_SETTING_NAME, 0.80)
             .build();
         ClusterSettings cs = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        ResourceLimitGroupServiceSettings resourceLimitGroupServiceSettings = new ResourceLimitGroupServiceSettings(settings, cs);
+        SandboxServiceSettings resourceLimitGroupServiceSettings = new SandboxServiceSettings(settings, cs);
         assertThrows(IllegalArgumentException.class, () -> resourceLimitGroupServiceSettings.setNodeLevelJvmRejectionThreshold(0.85));
     }
 

@@ -36,44 +36,44 @@ import static org.opensearch.cluster.metadata.Metadata.ALL_CONTEXTS;
  * {
  *     "resourceLimitGroups": {
  *         "name": {
- *             {@link ResourceLimitGroup}
+ *             {@link Sandbox}
  *         },
  *        ...
  *     }
  * }
  */
 @ExperimentalApi
-public class ResourceLimitGroupMetadata implements Metadata.Custom {
-    public static final String TYPE = "resourceLimitGroup";
-    private static final ParseField RESOURCE_LIMIT_GROUP_FIELD = new ParseField("resourceLimitGroups");
+public class SandboxMetadata implements Metadata.Custom {
+    public static final String TYPE = "sandbox";
+    private static final ParseField RESOURCE_LIMIT_GROUP_FIELD = new ParseField("sandboxes");
 
     @SuppressWarnings("unchecked")
-    static final ConstructingObjectParser<ResourceLimitGroupMetadata, Void> PARSER = new ConstructingObjectParser<>(
+    static final ConstructingObjectParser<SandboxMetadata, Void> PARSER = new ConstructingObjectParser<>(
         "resourceLimitGroupParser",
-        args -> new ResourceLimitGroupMetadata((Map<String, ResourceLimitGroup>) args[0])
+        args -> new SandboxMetadata((Map<String, Sandbox>) args[0])
     );
 
     static {
         PARSER.declareObject(ConstructingObjectParser.constructorArg(), (p, c) -> {
-            Map<String, ResourceLimitGroup> resourceLimitGroupMap = new HashMap<>();
+            Map<String, Sandbox> resourceLimitGroupMap = new HashMap<>();
             while (p.nextToken() != XContentParser.Token.END_OBJECT) {
-                resourceLimitGroupMap.put(p.currentName(), ResourceLimitGroup.fromXContent(p));
+                resourceLimitGroupMap.put(p.currentName(), Sandbox.fromXContent(p));
             }
             return resourceLimitGroupMap;
         }, RESOURCE_LIMIT_GROUP_FIELD);
     }
 
-    private final Map<String, ResourceLimitGroup> resourceLimitGroups;
+    private final Map<String, Sandbox> resourceLimitGroups;
 
-    public ResourceLimitGroupMetadata(Map<String, ResourceLimitGroup> resourceLimitGroups) {
+    public SandboxMetadata(Map<String, Sandbox> resourceLimitGroups) {
         this.resourceLimitGroups = resourceLimitGroups;
     }
 
-    public ResourceLimitGroupMetadata(StreamInput in) throws IOException {
-        this.resourceLimitGroups = in.readMap(StreamInput::readString, ResourceLimitGroup::new);
+    public SandboxMetadata(StreamInput in) throws IOException {
+        this.resourceLimitGroups = in.readMap(StreamInput::readString, Sandbox::new);
     }
 
-    public Map<String, ResourceLimitGroup> resourceLimitGroups() {
+    public Map<String, Sandbox> resourceLimitGroups() {
         return this.resourceLimitGroups;
     }
 
@@ -112,14 +112,14 @@ public class ResourceLimitGroupMetadata implements Metadata.Custom {
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject(RESOURCE_LIMIT_GROUP_FIELD.getPreferredName());
-        for (Map.Entry<String, ResourceLimitGroup> entry : resourceLimitGroups.entrySet()) {
+        for (Map.Entry<String, Sandbox> entry : resourceLimitGroups.entrySet()) {
             builder.field(entry.getKey(), entry.getValue());
         }
         builder.endObject();
         return builder;
     }
 
-    public static ResourceLimitGroupMetadata fromXContent(XContentParser parser) throws IOException {
+    public static SandboxMetadata fromXContent(XContentParser parser) throws IOException {
         return PARSER.parse(parser, null);
     }
 
@@ -130,7 +130,7 @@ public class ResourceLimitGroupMetadata implements Metadata.Custom {
      */
     @Override
     public Diff<Metadata.Custom> diff(final Metadata.Custom previousState) {
-        return new ResourceLimitGroupMetadataDiff((ResourceLimitGroupMetadata) previousState, this);
+        return new ResourceLimitGroupMetadataDiff((SandboxMetadata) previousState, this);
     }
 
     /**
@@ -145,9 +145,9 @@ public class ResourceLimitGroupMetadata implements Metadata.Custom {
      * ResourceLimitGroupMetadataDiff
      */
     static class ResourceLimitGroupMetadataDiff implements NamedDiff<Metadata.Custom> {
-        final Diff<Map<String, ResourceLimitGroup>> dataStreanDiff;
+        final Diff<Map<String, Sandbox>> dataStreanDiff;
 
-        ResourceLimitGroupMetadataDiff(final ResourceLimitGroupMetadata before, final ResourceLimitGroupMetadata after) {
+        ResourceLimitGroupMetadataDiff(final SandboxMetadata before, final SandboxMetadata after) {
             dataStreanDiff = DiffableUtils.diff(
                 before.resourceLimitGroups,
                 after.resourceLimitGroups,
@@ -159,8 +159,8 @@ public class ResourceLimitGroupMetadata implements Metadata.Custom {
             this.dataStreanDiff = DiffableUtils.readJdkMapDiff(
                 in,
                 DiffableUtils.getStringKeySerializer(),
-                ResourceLimitGroup::new,
-                ResourceLimitGroup::readDiff
+                Sandbox::new,
+                Sandbox::readDiff
             );
         }
 
@@ -189,7 +189,7 @@ public class ResourceLimitGroupMetadata implements Metadata.Custom {
          */
         @Override
         public Metadata.Custom apply(Metadata.Custom part) {
-            return new ResourceLimitGroupMetadata(dataStreanDiff.apply(((ResourceLimitGroupMetadata) part).resourceLimitGroups));
+            return new SandboxMetadata(dataStreanDiff.apply(((SandboxMetadata) part).resourceLimitGroups));
         }
     }
 
@@ -197,7 +197,7 @@ public class ResourceLimitGroupMetadata implements Metadata.Custom {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        ResourceLimitGroupMetadata that = (ResourceLimitGroupMetadata) o;
+        SandboxMetadata that = (SandboxMetadata) o;
         return Objects.equals(resourceLimitGroups, that.resourceLimitGroups);
     }
 

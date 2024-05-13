@@ -6,13 +6,13 @@
  * compatible open source license.
  */
 
-package org.opensearch.search.resource_limit_group;
+package org.opensearch.search.sandboxing;
 
 /**
  * This interface can be implemented by tasks which will be tracked and monitored using {@link org.opensearch.cluster.metadata.ResourceLimitGroup}
  */
-public interface ResourceLimitGroupTask {
-    public void setResourceLimitGroupName(String sandboxResourceLimitGroup);
+public interface SandboxTask {
+    void setSandboxName(String sandboxName);
 
-    public String getResourceLimitGroupName();
+    String getSandboxName();
 }

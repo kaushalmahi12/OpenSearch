@@ -6,15 +6,16 @@
  * compatible open source license.
  */
 
-package org.opensearch.search.resource_limit_group;
+package org.opensearch.search.sandboxing;
 
 /**
  * This interface is used to identify and completely remove deleted resourceLimitGroups which has been marked as deleted
  * previously but had the tasks running at the time of deletion request
  */
-public interface ResourceLimitGroupPruner {
+public interface SandboxPruner {
     /**
      * remove the deleted resourceLimitGroups from the system once all the tasks in those resourceLimitGroups are completed/cancelled
      */
-    void pruneResourceLimitGroup();
+    void pruneSandboxes();
+    void deleteSandbox(String sandboxName);
 }

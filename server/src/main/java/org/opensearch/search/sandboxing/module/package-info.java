@@ -7,6 +7,7 @@
  */
 
 /**
- * Query Sandboxing related artifacts
+ * Guice Module
  */
-package org.opensearch.search.resource_limit_group;
+
+package org.opensearch.search.sandboxing.module;

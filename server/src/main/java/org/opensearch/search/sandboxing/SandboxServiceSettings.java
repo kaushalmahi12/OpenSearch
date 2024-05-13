@@ -6,7 +6,7 @@
  * compatible open source license.
  */
 
-package org.opensearch.search.resource_limit_group;
+package org.opensearch.search.sandboxing;
 
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
@@ -16,7 +16,7 @@ import org.opensearch.common.unit.TimeValue;
 /**
  * Main class to declare the query ResourceLimitGrouping feature related settings
  */
-public class ResourceLimitGroupServiceSettings {
+public class SandboxServiceSettings {
     private static final Long DEFAULT_RUN_INTERVAL_MILLIS = 1000l;
     private static final Double DEFAULT_NODE_LEVEL_REJECTION_THRESHOLD = 0.8;
     private static final Double DEFAULT_NODE_LEVEL_CANCELLATION_THRESHOLD = 0.9;
@@ -95,7 +95,7 @@ public class ResourceLimitGroupServiceSettings {
      * @param settings
      * @param clusterSettings
      */
-    public ResourceLimitGroupServiceSettings(Settings settings, ClusterSettings clusterSettings) {
+    public SandboxServiceSettings(Settings settings, ClusterSettings clusterSettings) {
         runIntervalMillis = new TimeValue(RESOURCE_LIMIT_GROUP_RUN_INTERVAL_SETTING.get(settings));
         nodeLevelJvmCancellationThreshold = NODE_LEVEL_CANCELLATION_THRESHOLD.get(settings);
         nodeLevelJvmRejectionThreshold = NODE_LEVEL_REJECTION_THRESHOLD.get(settings);

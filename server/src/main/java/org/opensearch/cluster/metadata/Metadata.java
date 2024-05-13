@@ -835,9 +835,9 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
         return Optional.ofNullable((ViewMetadata) this.custom(ViewMetadata.TYPE)).map(ViewMetadata::views).orElse(Collections.emptyMap());
     }
 
-    public Map<String, ResourceLimitGroup> resourceLimitGroups() {
-        return Optional.ofNullable((ResourceLimitGroupMetadata) this.custom(ResourceLimitGroupMetadata.TYPE))
-            .map(ResourceLimitGroupMetadata::resourceLimitGroups)
+    public Map<String, Sandbox> resourceLimitGroups() {
+        return Optional.ofNullable((SandboxMetadata) this.custom(SandboxMetadata.TYPE))
+            .map(SandboxMetadata::resourceLimitGroups)
             .orElse(Collections.emptyMap());
 
     }
@@ -1336,33 +1336,33 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
             return this;
         }
 
-        public Builder resourceLimitGroups(final Map<String, ResourceLimitGroup> resourceLimitGroups) {
-            this.customs.put(ResourceLimitGroupMetadata.TYPE, new ResourceLimitGroupMetadata(resourceLimitGroups));
+        public Builder resourceLimitGroups(final Map<String, Sandbox> resourceLimitGroups) {
+            this.customs.put(SandboxMetadata.TYPE, new SandboxMetadata(resourceLimitGroups));
             return this;
         }
 
-        public ResourceLimitGroup getResourceLimitGroup(final String resourceLimitGroupName) {
+        public Sandbox getResourceLimitGroup(final String resourceLimitGroupName) {
             return getResourceLimitGroups().get(resourceLimitGroupName);
         }
 
-        public Builder put(final ResourceLimitGroup resourceLimitGroup) {
+        public Builder put(final Sandbox resourceLimitGroup) {
             Objects.requireNonNull(resourceLimitGroup, "resourceLimitGroup should not be null");
-            Map<String, ResourceLimitGroup> existing = new HashMap<>(getResourceLimitGroups());
+            Map<String, Sandbox> existing = new HashMap<>(getResourceLimitGroups());
             existing.put(resourceLimitGroup.getName(), resourceLimitGroup);
             return resourceLimitGroups(existing);
         }
 
-        public Builder removeResourceLimitGroup(final String resourceLimitGroupName) {
-            Objects.requireNonNull(resourceLimitGroupName, "resourceLimitGroup should not be null");
-            Map<String, ResourceLimitGroup> existing = new HashMap<>(getResourceLimitGroups());
-            existing.remove(resourceLimitGroupName);
+        public Builder removeResourceLimitGroup(final String sandboxName) {
+            Objects.requireNonNull(sandboxName, "resourceLimitGroup should not be null");
+            Map<String, Sandbox> existing = new HashMap<>(getResourceLimitGroups());
+            existing.remove(sandboxName);
             return resourceLimitGroups(existing);
         }
 
-        private Map<String, ResourceLimitGroup> getResourceLimitGroups() {
-            return Optional.ofNullable(this.customs.get(ResourceLimitGroupMetadata.TYPE))
-                .map(o -> (ResourceLimitGroupMetadata) o)
-                .map(ResourceLimitGroupMetadata::resourceLimitGroups)
+        private Map<String, Sandbox> getResourceLimitGroups() {
+            return Optional.ofNullable(this.customs.get(SandboxMetadata.TYPE))
+                .map(o -> (SandboxMetadata) o)
+                .map(SandboxMetadata::resourceLimitGroups)
                 .orElse(Collections.emptyMap());
         }
 

@@ -6,14 +6,17 @@
  * compatible open source license.
  */
 
-package org.opensearch.search.resource_limit_group.tracker;
+package org.opensearch.search.sandboxing.tracker;
+
+import org.opensearch.search.sandboxing.SandboxResourceTaskComposite;
 
 /**
  * This interface is mainly for tracking the resourceLimitGroup level resource usages
  */
-public interface ResourceLimitGroupResourceUsageTracker {
+public interface SandboxResourceUsageTracker {
     /**
      * updates the current resource usage of resourceLimitGroups
      */
-    public void updateResourceLimitGroupsResourceUsage();
+
+    SandboxResourceTaskComposite getSandboxResourceTaskComposite();
 }

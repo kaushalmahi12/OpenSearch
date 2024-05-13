@@ -7,6 +7,6 @@
  */
 
 /**
- * ResourceLimitGroup resource tracking artifacts
+ * Package for cancellation related abstracts
  */
-package org.opensearch.search.resource_limit_group.tracker;
+package org.opensearch.search.sandboxing.cancellation;

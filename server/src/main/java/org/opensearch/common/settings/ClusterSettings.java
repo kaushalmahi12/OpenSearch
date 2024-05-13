@@ -154,7 +154,7 @@ import org.opensearch.search.backpressure.settings.SearchBackpressureSettings;
 import org.opensearch.search.backpressure.settings.SearchShardTaskSettings;
 import org.opensearch.search.backpressure.settings.SearchTaskSettings;
 import org.opensearch.search.fetch.subphase.highlight.FastVectorHighlighter;
-import org.opensearch.search.resource_limit_group.ResourceLimitGroupServiceSettings;
+import org.opensearch.search.sandboxing.SandboxServiceSettings;
 import org.opensearch.snapshots.InternalSnapshotsInfoService;
 import org.opensearch.snapshots.SnapshotsService;
 import org.opensearch.tasks.TaskCancellationMonitoringSettings;
@@ -736,9 +736,9 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 RemoteStoreSettings.CLUSTER_REMOTE_STORE_PATH_HASH_ALGORITHM_SETTING,
 
                 // Sandbox settings
-                ResourceLimitGroupServiceSettings.MAX_RESOURCE_LIMIT_GROUP_COUNT,
-                ResourceLimitGroupServiceSettings.NODE_LEVEL_REJECTION_THRESHOLD,
-                ResourceLimitGroupServiceSettings.NODE_LEVEL_CANCELLATION_THRESHOLD
+                SandboxServiceSettings.MAX_RESOURCE_LIMIT_GROUP_COUNT,
+                SandboxServiceSettings.NODE_LEVEL_REJECTION_THRESHOLD,
+                SandboxServiceSettings.NODE_LEVEL_CANCELLATION_THRESHOLD
             )
         )
     );

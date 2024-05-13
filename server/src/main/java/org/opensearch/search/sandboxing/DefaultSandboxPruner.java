@@ -38,7 +38,6 @@ public class DefaultSandboxPruner implements SandboxPruner {
   }
 
   private boolean hasUnfinishedTasks(String sandboxName) {
-    // Placeholder
     return !taskData.getTasksBySandbox().get(sandboxName).isEmpty();
   }
 

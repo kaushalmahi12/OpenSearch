@@ -41,6 +41,15 @@ public enum ResourceType {
         throw new IllegalArgumentException("Unknown resource type: [" + s + "]");
     }
 
+    public static boolean isValidResourceType(String s) {
+        for (ResourceType resourceType : values()) {
+            if (resourceType.getName().equals(s)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static void writeTo(StreamOutput out, ResourceType resourceType) throws IOException {
         out.writeString(resourceType.getName());
     }

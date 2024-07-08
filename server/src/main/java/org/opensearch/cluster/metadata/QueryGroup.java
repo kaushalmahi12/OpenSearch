@@ -11,7 +11,7 @@ package org.opensearch.cluster.metadata;
 import org.opensearch.cluster.AbstractDiffable;
 import org.opensearch.cluster.Diff;
 import org.opensearch.common.UUIDs;
-import org.opensearch.common.annotation.PublicApi;
+import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
@@ -37,7 +37,7 @@ import java.util.Objects;
  *              "updatedAt": 4513232415
  * }
  */
-@PublicApi(since = "2.15")
+@ExperimentalApi
 public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXContentObject {
 
     public static final int MAX_CHARS_ALLOWED_IN_NAME = 50;
@@ -97,11 +97,6 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
         );
     }
 
-    /**
-     * Write this into the {@linkplain StreamOutput}.
-     *
-     * @param out
-     */
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(name);
@@ -123,21 +118,20 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
         }
     }
 
-    /**
-     * @param builder
-     * @param params
-     * @return
-     * @throws IOException
-     */
     @Override
     public XContentBuilder toXContent(final XContentBuilder builder, final Params params) throws IOException {
+        return writeToXContent(this, builder);
+    }
+
+    public static XContentBuilder writeToXContent(QueryGroup queryGroup, final XContentBuilder builder) throws IOException {
         builder.startObject();
-        builder.field("_id", _id);
-        builder.field("name", name);
-        builder.field("resiliency_mode", resiliencyMode.getName());
-        builder.field("updatedAt", updatedAtInMillis);
+        builder.field("_id", queryGroup.get_id());
+        builder.field("name", queryGroup.getName());
+        builder.field("resiliency_mode", queryGroup.getResiliencyMode().getName());
+        builder.field("updatedAt", queryGroup.getUpdatedAtInMillis());
         // write resource limits
         builder.startObject("resourceLimits");
+        Map<ResourceType, Object> resourceLimits = queryGroup.getResourceLimits();
         for (ResourceType resourceType : ResourceType.values()) {
             if (resourceLimits.containsKey(resourceType)) {
                 builder.field(resourceType.getName(), resourceLimits.get(resourceType));
@@ -165,7 +159,7 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
         String fieldName = "";
         // Map to hold resources
         final Map<ResourceType, Object> resourceLimits = new HashMap<>();
-        while ((token = parser.nextToken()) != null) {
+        while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
             if (token == XContentParser.Token.FIELD_NAME) {
                 fieldName = parser.currentName();
             } else if (token.isValue()) {
@@ -243,8 +237,8 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
     }
 
     /**
-     * builder method for this {@link QueryGroup}
-     * @return
+     * builder method for the {@link QueryGroup}
+     * @return Builder object
      */
     public static Builder builder() {
         return new Builder();
@@ -256,7 +250,7 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
      * ENFORCED - means that it will never breach the assigned limits and will cancel as soon as the limits are breached
      * MONITOR - it will not cause any cancellation but just log the eligible task cancellations
      */
-    @PublicApi(since = "2.15")
+    @ExperimentalApi
     public enum ResiliencyMode {
         SOFT("soft"),
         ENFORCED("enforced"),
@@ -285,7 +279,7 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
     /**
      * Builder class for {@link QueryGroup}
      */
-    @PublicApi(since = "2.15")
+    @ExperimentalApi
     public static class Builder {
         private String name;
         private String _id;

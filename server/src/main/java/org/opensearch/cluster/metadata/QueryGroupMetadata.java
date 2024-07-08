@@ -16,7 +16,6 @@ import org.opensearch.core.ParseField;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.xcontent.ConstructingObjectParser;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
@@ -47,22 +46,6 @@ public class QueryGroupMetadata implements Metadata.Custom {
 
     private final Map<String, QueryGroup> queryGroups;
 
-    @SuppressWarnings("unchecked")
-    static final ConstructingObjectParser<QueryGroupMetadata, Void> PARSER = new ConstructingObjectParser<>(
-        "queryGroupsParser",
-        args -> new QueryGroupMetadata((Map<String, QueryGroup>) args[0])
-    );
-
-    static {
-        PARSER.declareObjectArray(ConstructingObjectParser.constructorArg(), (p, c) -> {
-            Map<String, QueryGroup> queryGroupMap = new HashMap<>();
-            while (p.nextToken() != XContentParser.Token.END_OBJECT) {
-                queryGroupMap.put(p.currentName(), QueryGroup.fromXContent(p));
-            }
-            return queryGroupMap;
-        }, QUERY_GROUP_FIELD);
-    }
-
     public QueryGroupMetadata(Map<String, QueryGroup> queryGroups) {
         this.queryGroups = queryGroups;
     }
@@ -91,22 +74,11 @@ public class QueryGroupMetadata implements Metadata.Custom {
         return Version.V_3_0_0;
     }
 
-    /**
-     * Write this into the {@linkplain StreamOutput}.
-     *
-     * @param out
-     */
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeMap(queryGroups, StreamOutput::writeString, (stream, val) -> val.writeTo(stream));
     }
 
-    /**
-     * @param builder
-     * @param params
-     * @return
-     * @throws IOException
-     */
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         for (Map.Entry<String, QueryGroup> entry : queryGroups.entrySet()) {
@@ -116,24 +88,36 @@ public class QueryGroupMetadata implements Metadata.Custom {
     }
 
     public static QueryGroupMetadata fromXContent(XContentParser parser) throws IOException {
-        return PARSER.parse(parser, null);
+        Map<String, QueryGroup> queryGroupMap = new HashMap<>();
+
+        if (parser.currentToken() == null) {
+            parser.nextToken();
+        }
+
+        if (parser.currentToken() != XContentParser.Token.START_OBJECT) {
+            throw new IllegalArgumentException(
+                "QueryGroupMetadata.fromXContent was expecting a { token but found : " + parser.currentToken()
+            );
+        }
+        XContentParser.Token token = parser.currentToken();
+        String fieldName = parser.currentName();
+        while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
+            if (token == XContentParser.Token.FIELD_NAME) {
+                fieldName = parser.currentName();
+            } else {
+                QueryGroup queryGroup = QueryGroup.fromXContent(parser);
+                queryGroupMap.put(fieldName, queryGroup);
+            }
+        }
+
+        return new QueryGroupMetadata(queryGroupMap);
     }
 
-    /**
-     * Returns serializable object representing differences between this and previousState
-     *
-     * @param previousState
-     */
     @Override
     public Diff<Metadata.Custom> diff(final Metadata.Custom previousState) {
         return new QueryGroupMetadataDiff((QueryGroupMetadata) previousState, this);
     }
 
-    /**
-     * @param in
-     * @return the metadata diff for {@link QueryGroupMetadata} objects
-     * @throws IOException
-     */
     public static NamedDiff<Metadata.Custom> readDiffFrom(StreamInput in) throws IOException {
         return new QueryGroupMetadataDiff(in);
     }
@@ -188,21 +172,11 @@ public class QueryGroupMetadata implements Metadata.Custom {
             return TYPE;
         }
 
-        /**
-         * Write this into the {@linkplain StreamOutput}.
-         *
-         * @param out
-         */
         @Override
         public void writeTo(StreamOutput out) throws IOException {
             dataStreamDiff.writeTo(out);
         }
 
-        /**
-         * Applies difference to the specified part and returns the resulted part
-         *
-         * @param part
-         */
         @Override
         public Metadata.Custom apply(Metadata.Custom part) {
             return new QueryGroupMetadata(new HashMap<>(dataStreamDiff.apply(((QueryGroupMetadata) part).queryGroups)));

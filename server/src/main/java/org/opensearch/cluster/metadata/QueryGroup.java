@@ -46,13 +46,13 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
     private final ResiliencyMode resiliencyMode;
     // It is an epoch in millis
     private final long updatedAtInMillis;
-    private final Map<ResourceType, Object> resourceLimits;
+    private final Map<ResourceType, Double> resourceLimits;
 
-    public QueryGroup(String name, ResiliencyMode resiliencyMode, Map<ResourceType, Object> resourceLimits) {
+    public QueryGroup(String name, ResiliencyMode resiliencyMode, Map<ResourceType, Double> resourceLimits) {
         this(name, UUIDs.randomBase64UUID(), resiliencyMode, resourceLimits, Instant.now().getMillis());
     }
 
-    public QueryGroup(String name, String _id, ResiliencyMode resiliencyMode, Map<ResourceType, Object> resourceLimits, long updatedAt) {
+    public QueryGroup(String name, String _id, ResiliencyMode resiliencyMode, Map<ResourceType, Double> resourceLimits, long updatedAt) {
         Objects.requireNonNull(name, "QueryGroup.name can't be null");
         Objects.requireNonNull(resourceLimits, "QueryGroup.resourceLimits can't be null");
         Objects.requireNonNull(resiliencyMode, "QueryGroup.resiliencyMode can't be null");
@@ -92,7 +92,7 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
             in.readString(),
             in.readString(),
             ResiliencyMode.fromName(in.readString()),
-            in.readMap((i) -> ResourceType.fromName(i.readString()), StreamInput::readGenericValue),
+            in.readMap((i) -> ResourceType.fromName(i.readString()), StreamInput::readDouble),
             in.readLong()
         );
     }
@@ -106,9 +106,9 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
         out.writeLong(updatedAtInMillis);
     }
 
-    private void validateResourceLimits(Map<ResourceType, Object> resourceLimits) {
-        for (Map.Entry<ResourceType, Object> resource : resourceLimits.entrySet()) {
-            Double threshold = (Double) resource.getValue();
+    private void validateResourceLimits(Map<ResourceType, Double> resourceLimits) {
+        for (Map.Entry<ResourceType, Double> resource : resourceLimits.entrySet()) {
+            Double threshold = resource.getValue();
             Objects.requireNonNull(resource.getKey(), "resourceName can't be null");
             Objects.requireNonNull(threshold, "resource limit threshold for" + resource.getKey().getName() + " : can't be null");
 
@@ -153,7 +153,7 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
 
         String fieldName = "";
         // Map to hold resources
-        final Map<ResourceType, Object> resourceLimits = new HashMap<>();
+        final Map<ResourceType, Double> resourceLimits = new HashMap<>();
         while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
             if (token == XContentParser.Token.FIELD_NAME) {
                 fieldName = parser.currentName();
@@ -219,7 +219,7 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
         return resiliencyMode;
     }
 
-    public Map<ResourceType, Object> getResourceLimits() {
+    public Map<ResourceType, Double> getResourceLimits() {
         return resourceLimits;
     }
 
@@ -280,7 +280,7 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
         private String _id;
         private ResiliencyMode resiliencyMode;
         private long updatedAt;
-        private Map<ResourceType, Object> resourceLimits;
+        private Map<ResourceType, Double> resourceLimits;
 
         private Builder() {}
 
@@ -304,7 +304,7 @@ public class QueryGroup extends AbstractDiffable<QueryGroup> implements ToXConte
             return this;
         }
 
-        public Builder resourceLimits(Map<ResourceType, Object> resourceLimits) {
+        public Builder resourceLimits(Map<ResourceType, Double> resourceLimits) {
             this.resourceLimits = resourceLimits;
             return this;
         }

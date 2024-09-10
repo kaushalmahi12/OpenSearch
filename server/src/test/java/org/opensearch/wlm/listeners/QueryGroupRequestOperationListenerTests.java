@@ -12,6 +12,7 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.test.OpenSearchTestCase;
@@ -30,8 +31,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -137,7 +140,7 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
 //        TransportService mockTransportService = mock(TransportService.class);
 //        DiscoveryNode mockDiscoveryNode = mock(DiscoveryNode.class);
 //        when(mockTransportService.getLocalNode()).thenReturn(mockDiscoveryNode);
-//        queryGroupService = new QueryGroupService(mockTransportService, queryGroupStateMap);
+//        queryGroupService = new QueryGroupService(mockTransportService.getLocalNode(), mock(ClusterService.class), queryGroupStateMap);
 
         sut = new QueryGroupRequestOperationListener(queryGroupService, testThreadPool);
 
@@ -160,7 +163,9 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
             }
         });
 
-        QueryGroupStats actualStats = queryGroupService.nodeStats();
+        Set<String> set = new HashSet<>();
+        set.add("_all");
+        QueryGroupStats actualStats = queryGroupService.nodeStats(set, null);
 
         QueryGroupStats expectedStats = new QueryGroupStats(
             mock(DiscoveryNode.class),
@@ -261,15 +266,19 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
                 Collections.emptySet(),
                 Collections.emptySet()
             );
+
 //            TransportService mockTransportService = mock(TransportService.class);
 //            DiscoveryNode mockDiscoveryNode = mock(DiscoveryNode.class);
 //            when(mockTransportService.getLocalNode()).thenReturn(mockDiscoveryNode);
-//            queryGroupService = new QueryGroupService(mockTransportService, queryGroupStateMap);
+//            queryGroupService = new QueryGroupService(mockTransportService.getLocalNode(), mock(ClusterService.class), queryGroupStateMap);
 
             sut = new QueryGroupRequestOperationListener(queryGroupService, testThreadPool);
             sut.onRequestFailure(null, null);
 
-            QueryGroupStats actualStats = queryGroupService.nodeStats();
+            Set<String> set = new HashSet<>();
+            set.add("_all");
+            QueryGroupStats actualStats = queryGroupService.nodeStats(set, null);
+
             assertEquals(expectedStats, actualStats);
         }
 

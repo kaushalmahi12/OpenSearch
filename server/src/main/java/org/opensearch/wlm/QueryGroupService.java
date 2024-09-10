@@ -27,9 +27,11 @@ import org.opensearch.tasks.TaskResourceTrackingService;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.wlm.cancellation.QueryGroupTaskCancellationService;
+import org.opensearch.cluster.metadata.QueryGroup;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
-import org.opensearch.transport.TransportService;
 import org.opensearch.wlm.stats.QueryGroupState;
 import org.opensearch.wlm.stats.QueryGroupStats;
 import org.opensearch.wlm.stats.QueryGroupStats.QueryGroupStatsHolder;
@@ -199,15 +201,18 @@ public class QueryGroupService extends AbstractLifecycleComponent
     }
 
     private final TransportService transportService;
+    private final DiscoveryNode discoveryNode;
+    private final ClusterService clusterService;
 
     @Inject
-    public QueryGroupService(TransportService transportService) {
-        this(transportService, new HashMap<>());
+    public QueryGroupService(DiscoveryNode discoveryNode, ClusterService clusterService) {
+        this(discoveryNode, clusterService, new HashMap<>());
     }
 
     @Inject
-    public QueryGroupService(TransportService transportService, Map<String, QueryGroupState> queryGroupStateMap) {
-        this.transportService = transportService;
+    public QueryGroupService(DiscoveryNode discoveryNode, ClusterService clusterService, Map<String, QueryGroupState> queryGroupStateMap) {
+        this.discoveryNode = discoveryNode;
+        this.clusterService = clusterService;
         this.queryGroupStateMap = queryGroupStateMap;
     }
 
@@ -229,16 +234,36 @@ public class QueryGroupService extends AbstractLifecycleComponent
     /**
      * @return node level query group stats
      */
-    public QueryGroupStats nodeStats() {
+    public QueryGroupStats nodeStats(Set<String> queryGroupIds, Boolean requestedBreached) {
         final Map<String, QueryGroupStatsHolder> statsHolderMap = new HashMap<>();
-        for (Map.Entry<String, QueryGroupState> queryGroupsState : queryGroupStateMap.entrySet()) {
-            final String queryGroupId = queryGroupsState.getKey();
-            final QueryGroupState currentState = queryGroupsState.getValue();
 
-            statsHolderMap.put(queryGroupId, QueryGroupStatsHolder.from(currentState));
-        }
+        queryGroupStateMap.forEach((queryGroupId, currentState) -> {
+            boolean shouldInclude = (queryGroupIds.size() == 1 && queryGroupIds.contains("_all")) || queryGroupIds.contains(queryGroupId);
 
-        return new QueryGroupStats(transportService.getLocalNode(), statsHolderMap);
+            if (shouldInclude) {
+                if (requestedBreached == null || requestedBreached == resourceLimitBreached(queryGroupId, currentState)) {
+                    statsHolderMap.put(queryGroupId, QueryGroupStatsHolder.from(currentState));
+                }
+            }
+        });
+
+        return new QueryGroupStats(discoveryNode, statsHolderMap);
+    }
+
+    /**
+     * @return if the QueryGroup breaches any resource limit based on the LastRecordedUsage
+     */
+    public boolean resourceLimitBreached(String id, QueryGroupState currentState) {
+        QueryGroup queryGroup = clusterService.state().metadata().queryGroups().get(id);
+
+        return currentState.getResourceState()
+            .entrySet()
+            .stream()
+            .anyMatch(
+                entry -> entry.getValue().getLastRecordedUsage() > queryGroup.getMutableQueryGroupFragment()
+                    .getResourceLimits()
+                    .get(entry.getKey())
+            );
     }
 
     private double getNodeLevelRejectionThreshold(double resourceLimit, ResourceType resourceType) {

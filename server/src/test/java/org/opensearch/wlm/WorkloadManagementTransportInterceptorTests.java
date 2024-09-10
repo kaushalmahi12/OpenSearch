@@ -11,6 +11,7 @@ package org.opensearch.wlm;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.SetOnce;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
@@ -49,6 +50,7 @@ public class WorkloadManagementTransportInterceptorTests extends OpenSearchTestC
             threadPool,
             new QueryGroupService(mockTaskCancellationService, mockClusterService, mockThreadPool, mockWorkloadManagementSettings)
         );
+        //sut = new WorkloadManagementTransportInterceptor(threadPool, new SetOnce<>(mock(QueryGroupService.class)));
     }
 
     public void tearDown() throws Exception {

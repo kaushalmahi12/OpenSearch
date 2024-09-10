@@ -11,11 +11,13 @@ package org.opensearch.wlm.listeners;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportService;
 import org.opensearch.wlm.QueryGroupService;
 import org.opensearch.wlm.QueryGroupTask;
 import org.opensearch.wlm.ResourceType;
@@ -82,6 +84,7 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
     public void testValidQueryGroupRequestFailure() throws IOException {
 
         QueryGroupStats expectedStats = new QueryGroupStats(
+            mock(DiscoveryNode.class),
             Map.of(
                 testQueryGroupId,
                 new QueryGroupStats.QueryGroupStatsHolder(
@@ -131,6 +134,10 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
             Collections.emptySet(),
             Collections.emptySet()
         );
+//        TransportService mockTransportService = mock(TransportService.class);
+//        DiscoveryNode mockDiscoveryNode = mock(DiscoveryNode.class);
+//        when(mockTransportService.getLocalNode()).thenReturn(mockDiscoveryNode);
+//        queryGroupService = new QueryGroupService(mockTransportService, queryGroupStateMap);
 
         sut = new QueryGroupRequestOperationListener(queryGroupService, testThreadPool);
 
@@ -156,6 +163,7 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
         QueryGroupStats actualStats = queryGroupService.nodeStats();
 
         QueryGroupStats expectedStats = new QueryGroupStats(
+            mock(DiscoveryNode.class),
             Map.of(
                 testQueryGroupId,
                 new QueryGroupStats.QueryGroupStatsHolder(
@@ -193,6 +201,7 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
 
     public void testInvalidQueryGroupFailure() throws IOException {
         QueryGroupStats expectedStats = new QueryGroupStats(
+            mock(DiscoveryNode.class),
             Map.of(
                 testQueryGroupId,
                 new QueryGroupStats.QueryGroupStatsHolder(
@@ -252,6 +261,10 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
                 Collections.emptySet(),
                 Collections.emptySet()
             );
+//            TransportService mockTransportService = mock(TransportService.class);
+//            DiscoveryNode mockDiscoveryNode = mock(DiscoveryNode.class);
+//            when(mockTransportService.getLocalNode()).thenReturn(mockDiscoveryNode);
+//            queryGroupService = new QueryGroupService(mockTransportService, queryGroupStateMap);
 
             sut = new QueryGroupRequestOperationListener(queryGroupService, testThreadPool);
             sut.onRequestFailure(null, null);

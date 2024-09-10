@@ -27,6 +27,9 @@ import org.opensearch.tasks.TaskResourceTrackingService;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.wlm.cancellation.QueryGroupTaskCancellationService;
+import org.opensearch.common.inject.Inject;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.transport.TransportService;
 import org.opensearch.wlm.stats.QueryGroupState;
 import org.opensearch.wlm.stats.QueryGroupStats;
 import org.opensearch.wlm.stats.QueryGroupStats.QueryGroupStatsHolder;
@@ -42,6 +45,7 @@ import static org.opensearch.wlm.tracker.QueryGroupResourceUsageTrackerService.T
 
 /**
  * As of now this is a stub and main implementation PR will be raised soon.Coming PR will collate these changes with core QueryGroupService changes
+ * @opensearch.experimental
  */
 public class QueryGroupService extends AbstractLifecycleComponent
     implements
@@ -194,6 +198,19 @@ public class QueryGroupService extends AbstractLifecycleComponent
         this.activeQueryGroups = new HashSet<>(currentQueryGroups.values());
     }
 
+    private final TransportService transportService;
+
+    @Inject
+    public QueryGroupService(TransportService transportService) {
+        this(transportService, new HashMap<>());
+    }
+
+    @Inject
+    public QueryGroupService(TransportService transportService, Map<String, QueryGroupState> queryGroupStateMap) {
+        this.transportService = transportService;
+        this.queryGroupStateMap = queryGroupStateMap;
+    }
+
     /**
      * updates the failure stats for the query group
      *
@@ -221,7 +238,7 @@ public class QueryGroupService extends AbstractLifecycleComponent
             statsHolderMap.put(queryGroupId, QueryGroupStatsHolder.from(currentState));
         }
 
-        return new QueryGroupStats(statsHolderMap);
+        return new QueryGroupStats(transportService.getLocalNode(), statsHolderMap);
     }
 
     private double getNodeLevelRejectionThreshold(double resourceLimit, ResourceType resourceType) {

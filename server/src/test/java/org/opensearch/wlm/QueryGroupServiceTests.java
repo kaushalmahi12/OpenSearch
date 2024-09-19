@@ -13,6 +13,7 @@ import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.metadata.QueryGroup;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
@@ -22,6 +23,7 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportService;
 import org.opensearch.wlm.cancellation.QueryGroupTaskCancellationService;
 import org.opensearch.wlm.cancellation.TaskSelectionStrategy;
 import org.opensearch.wlm.stats.QueryGroupState;
@@ -50,6 +52,8 @@ import static org.mockito.Mockito.when;
 public class QueryGroupServiceTests extends OpenSearchTestCase {
     private QueryGroupService queryGroupService;
     private QueryGroupTaskCancellationService mockCancellationService;
+    private TransportService mockTransportService;
+    private DiscoveryNode mockDiscoveryNode;
     private ClusterService mockClusterService;
     private ThreadPool mockThreadPool;
     private WorkloadManagementSettings mockWorkloadManagementSettings;
@@ -60,15 +64,20 @@ public class QueryGroupServiceTests extends OpenSearchTestCase {
     public void setUp() throws Exception {
         super.setUp();
         mockClusterService = Mockito.mock(ClusterService.class);
+        mockTransportService = Mockito.mock(TransportService.class);
         mockThreadPool = Mockito.mock(ThreadPool.class);
+        mockDiscoveryNode = Mockito.mock(DiscoveryNode.class);
+        when(mockTransportService.getLocalNode()).thenReturn(mockDiscoveryNode);
         mockScheduledFuture = Mockito.mock(Scheduler.Cancellable.class);
         mockWorkloadManagementSettings = Mockito.mock(WorkloadManagementSettings.class);
+        when(mockWorkloadManagementSettings.getWlmMode()).thenReturn(WlmMode.ENABLED);
         mockQueryGroupStateMap = new HashMap<>();
         mockNodeDuressTrackers = Mockito.mock(NodeDuressTrackers.class);
         mockCancellationService = Mockito.mock(TestQueryGroupCancellationService.class);
 
         queryGroupService = new QueryGroupService(
             mockCancellationService,
+            mockTransportService,
             mockClusterService,
             mockThreadPool,
             mockWorkloadManagementSettings,
@@ -187,6 +196,7 @@ public class QueryGroupServiceTests extends OpenSearchTestCase {
 
         queryGroupService = new QueryGroupService(
             mockCancellationService,
+            mockTransportService,
             mockClusterService,
             mockThreadPool,
             mockWorkloadManagementSettings,
@@ -223,6 +233,7 @@ public class QueryGroupServiceTests extends OpenSearchTestCase {
 
         queryGroupService = new QueryGroupService(
             mockCancellationService,
+            mockTransportService,
             mockClusterService,
             mockThreadPool,
             mockWorkloadManagementSettings,
@@ -254,9 +265,11 @@ public class QueryGroupServiceTests extends OpenSearchTestCase {
         queryGroupState.getResourceState().get(ResourceType.CPU).setLastRecordedUsage(0.08);
 
         mockQueryGroupStateMap.put("queryGroupId1", queryGroupState);
+        when(mockWorkloadManagementSettings.getNodeLevelCpuRejectionThreshold()).thenReturn(0.8);
 
         queryGroupService = new QueryGroupService(
             mockCancellationService,
+            mockTransportService,
             mockClusterService,
             mockThreadPool,
             mockWorkloadManagementSettings,
@@ -300,6 +313,7 @@ public class QueryGroupServiceTests extends OpenSearchTestCase {
 
         queryGroupService = new QueryGroupService(
             mockCancellationService,
+            mockTransportService,
             mockClusterService,
             mockThreadPool,
             mockWorkloadManagementSettings,
@@ -330,6 +344,7 @@ public class QueryGroupServiceTests extends OpenSearchTestCase {
         mockQueryGroupStateMap.put("testId", queryGroupState);
         queryGroupService = new QueryGroupService(
             mockCancellationService,
+            mockTransportService,
             mockClusterService,
             mockThreadPool,
             mockWorkloadManagementSettings,

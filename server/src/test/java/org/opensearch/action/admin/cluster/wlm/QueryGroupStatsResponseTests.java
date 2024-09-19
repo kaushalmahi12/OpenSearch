@@ -46,6 +46,7 @@ public class QueryGroupStatsResponseTests extends OpenSearchTestCase {
                 0,
                 1,
                 0,
+                0,
                 Map.of(
                     ResourceType.CPU,
                     new QueryGroupStats.ResourceStats(0, 0, 0),
@@ -85,6 +86,7 @@ public class QueryGroupStatsResponseTests extends OpenSearchTestCase {
                 + "    \"query_groups\" : {\n"
                 + "      \"safjgagnaeekg-3r3fads\" : {\n"
                 + "        \"completions\" : 0,\n"
+                + "        \"shard_completions\" : 0,\n"
                 + "        \"rejections\" : 0,\n"
                 + "        \"failures\" : 1,\n"
                 + "        \"total_cancellations\" : 0,\n"

@@ -17,6 +17,7 @@ import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportRequest;
 import org.opensearch.transport.TransportRequestHandler;
+import org.opensearch.transport.TransportService;
 import org.opensearch.wlm.WorkloadManagementTransportInterceptor.RequestHandler;
 import org.opensearch.wlm.cancellation.QueryGroupTaskCancellationService;
 
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.when;
 
 public class WorkloadManagementTransportInterceptorTests extends OpenSearchTestCase {
     private QueryGroupTaskCancellationService mockTaskCancellationService;
+    private TransportService mockTransportService;
     private ClusterService mockClusterService;
     private ThreadPool mockThreadPool;
     private WorkloadManagementSettings mockWorkloadManagementSettings;
@@ -37,6 +39,7 @@ public class WorkloadManagementTransportInterceptorTests extends OpenSearchTestC
     public void setUp() throws Exception {
         super.setUp();
         mockTaskCancellationService = mock(QueryGroupTaskCancellationService.class);
+        mockTransportService = mock(TransportService.class);
         mockClusterService = mock(ClusterService.class);
         mockThreadPool = mock(ThreadPool.class);
         mockWorkloadManagementSettings = mock(WorkloadManagementSettings.class);
@@ -46,11 +49,8 @@ public class WorkloadManagementTransportInterceptorTests extends OpenSearchTestC
         when(mockClusterService.state()).thenReturn(state);
         when(state.metadata()).thenReturn(metadata);
         when(metadata.queryGroups()).thenReturn(Collections.emptyMap());
-        sut = new WorkloadManagementTransportInterceptor(
-            threadPool,
-            new QueryGroupService(mockTaskCancellationService, mockClusterService, mockThreadPool, mockWorkloadManagementSettings)
-        );
-        //sut = new WorkloadManagementTransportInterceptor(threadPool, new SetOnce<>(mock(QueryGroupService.class)));
+        SetOnce<QueryGroupService> queryGroupServiceSetOnce = new SetOnce<>();
+        sut = new WorkloadManagementTransportInterceptor(threadPool, queryGroupServiceSetOnce);
     }
 
     public void tearDown() throws Exception {

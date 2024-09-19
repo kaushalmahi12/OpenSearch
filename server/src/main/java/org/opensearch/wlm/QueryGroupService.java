@@ -16,6 +16,7 @@ import org.opensearch.cluster.ClusterStateApplier;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.metadata.QueryGroup;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.Inject;
 import org.opensearch.common.lifecycle.AbstractLifecycleComponent;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.monitor.jvm.JvmStats;
@@ -26,12 +27,8 @@ import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskResourceTrackingService;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportService;
 import org.opensearch.wlm.cancellation.QueryGroupTaskCancellationService;
-import org.opensearch.cluster.metadata.QueryGroup;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
-import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.wlm.stats.QueryGroupState;
 import org.opensearch.wlm.stats.QueryGroupStats;
 import org.opensearch.wlm.stats.QueryGroupStats.QueryGroupStatsHolder;
@@ -61,14 +58,17 @@ public class QueryGroupService extends AbstractLifecycleComponent
     private final QueryGroupTaskCancellationService taskCancellationService;
     private volatile Scheduler.Cancellable scheduledFuture;
     private final ThreadPool threadPool;
+    private final TransportService transportService;
     private final ClusterService clusterService;
     private final WorkloadManagementSettings workloadManagementSettings;
     private Set<QueryGroup> activeQueryGroups;
     private final Set<QueryGroup> deletedQueryGroups;
     private final NodeDuressTrackers nodeDuressTrackers;
 
+    @Inject
     public QueryGroupService(
         QueryGroupTaskCancellationService taskCancellationService,
+        TransportService transportService,
         ClusterService clusterService,
         ThreadPool threadPool,
         WorkloadManagementSettings workloadManagementSettings
@@ -76,6 +76,7 @@ public class QueryGroupService extends AbstractLifecycleComponent
 
         this(
             taskCancellationService,
+            transportService,
             clusterService,
             threadPool,
             workloadManagementSettings,
@@ -102,8 +103,10 @@ public class QueryGroupService extends AbstractLifecycleComponent
         );
     }
 
+    @Inject
     public QueryGroupService(
         QueryGroupTaskCancellationService taskCancellationService,
+        TransportService transportService,
         ClusterService clusterService,
         ThreadPool threadPool,
         WorkloadManagementSettings workloadManagementSettings,
@@ -113,6 +116,7 @@ public class QueryGroupService extends AbstractLifecycleComponent
         Set<QueryGroup> deletedQueryGroups
     ) {
         this.taskCancellationService = taskCancellationService;
+        this.transportService = transportService;
         this.clusterService = clusterService;
         this.threadPool = threadPool;
         this.workloadManagementSettings = workloadManagementSettings;
@@ -200,22 +204,6 @@ public class QueryGroupService extends AbstractLifecycleComponent
         this.activeQueryGroups = new HashSet<>(currentQueryGroups.values());
     }
 
-    private final TransportService transportService;
-    private final DiscoveryNode discoveryNode;
-    private final ClusterService clusterService;
-
-    @Inject
-    public QueryGroupService(DiscoveryNode discoveryNode, ClusterService clusterService) {
-        this(discoveryNode, clusterService, new HashMap<>());
-    }
-
-    @Inject
-    public QueryGroupService(DiscoveryNode discoveryNode, ClusterService clusterService, Map<String, QueryGroupState> queryGroupStateMap) {
-        this.discoveryNode = discoveryNode;
-        this.clusterService = clusterService;
-        this.queryGroupStateMap = queryGroupStateMap;
-    }
-
     /**
      * updates the failure stats for the query group
      *
@@ -247,7 +235,7 @@ public class QueryGroupService extends AbstractLifecycleComponent
             }
         });
 
-        return new QueryGroupStats(discoveryNode, statsHolderMap);
+        return new QueryGroupStats(transportService.getLocalNode(), statsHolderMap);
     }
 
     /**
@@ -268,7 +256,7 @@ public class QueryGroupService extends AbstractLifecycleComponent
 
     private double getNodeLevelRejectionThreshold(double resourceLimit, ResourceType resourceType) {
         if (resourceType == ResourceType.CPU) {
-            return workloadManagementSettings.getNodeLevelCpuRejectionThreshold() * resourceLimit ;
+            return workloadManagementSettings.getNodeLevelCpuRejectionThreshold() * resourceLimit;
         } else if (resourceType == ResourceType.MEMORY) {
             return workloadManagementSettings.getNodeLevelMemoryRejectionThreshold() * resourceLimit;
         }

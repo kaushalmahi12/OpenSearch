@@ -36,7 +36,7 @@ public class QueryGroupStatsRequest extends BaseNodesRequest<QueryGroupStatsRequ
      * Get QueryGroup stats from nodes based on the nodes ids specified. If none are passed, stats
      * for all nodes will be returned.
      */
-    public QueryGroupStatsRequest(String[] nodesIds, Set<String> queryGroupIds, boolean breach) {
+    public QueryGroupStatsRequest(String[] nodesIds, Set<String> queryGroupIds, Boolean breach) {
         super(false, nodesIds);
         this.queryGroupIds = queryGroupIds;
         this.breach = breach;
@@ -59,7 +59,7 @@ public class QueryGroupStatsRequest extends BaseNodesRequest<QueryGroupStatsRequ
         return queryGroupIds;
     }
 
-    public boolean isBreach() {
+    public Boolean isBreach() {
         return breach;
     }
 }

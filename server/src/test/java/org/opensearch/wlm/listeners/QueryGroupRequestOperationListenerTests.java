@@ -10,7 +10,6 @@ package org.opensearch.wlm.listeners;
 
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.cluster.metadata.QueryGroup;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -50,6 +49,8 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
     private QueryGroupTaskCancellationService taskCancellationService;
     private ClusterService mockClusterService;
     private WorkloadManagementSettings mockWorkloadManagementSettings;
+    private TransportService mockTransportService;
+    private DiscoveryNode mockDiscoveryNode;
     Map<String, QueryGroupState> queryGroupStateMap;
     String testQueryGroupId;
     QueryGroupRequestOperationListener sut;
@@ -57,7 +58,10 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
     public void setUp() throws Exception {
         super.setUp();
         taskCancellationService = mock(QueryGroupTaskCancellationService.class);
+        mockTransportService = mock(TransportService.class);
         mockClusterService = mock(ClusterService.class);
+        mockDiscoveryNode = mock(DiscoveryNode.class);
+        when(mockTransportService.getLocalNode()).thenReturn(mockDiscoveryNode);
         mockWorkloadManagementSettings = mock(WorkloadManagementSettings.class);
         queryGroupStateMap = new HashMap<>();
         testQueryGroupId = "safjgagnakg-3r3fads";
@@ -140,7 +144,17 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
         Metadata metadata = mock(Metadata.class);
         when(clusterState.metadata()).thenReturn(metadata);
         when(metadata.queryGroups()).thenReturn(Map.of(testQueryGroupId, queryGroup));
-        queryGroupService = new QueryGroupService(mockTransportService.getLocalNode(), clusterService, queryGroupStateMap);
+        queryGroupService = new QueryGroupService(
+            taskCancellationService,
+            mockTransportService,
+            clusterService,
+            testThreadPool,
+            mockWorkloadManagementSettings,
+            null,
+            queryGroupStateMap,
+            Collections.emptySet(),
+            Collections.emptySet()
+        );
         assertFalse(queryGroupService.resourceLimitBreached(testQueryGroupId, new QueryGroupState()));
     }
 
@@ -150,6 +164,7 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
         setupMockedQueryGroupsFromClusterState();
         queryGroupService = new QueryGroupService(
             taskCancellationService,
+            mockTransportService,
             mockClusterService,
             testThreadPool,
             mockWorkloadManagementSettings,
@@ -158,10 +173,6 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
             Collections.emptySet(),
             Collections.emptySet()
         );
-//        TransportService mockTransportService = mock(TransportService.class);
-//        DiscoveryNode mockDiscoveryNode = mock(DiscoveryNode.class);
-//        when(mockTransportService.getLocalNode()).thenReturn(mockDiscoveryNode);
-//        queryGroupService = new QueryGroupService(mockTransportService.getLocalNode(), mock(ClusterService.class), queryGroupStateMap);
 
         sut = new QueryGroupRequestOperationListener(queryGroupService, testThreadPool);
 
@@ -279,6 +290,7 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
 
             queryGroupService = new QueryGroupService(
                 taskCancellationService,
+                mockTransportService,
                 mockClusterService,
                 testThreadPool,
                 mockWorkloadManagementSettings,
@@ -287,11 +299,6 @@ public class QueryGroupRequestOperationListenerTests extends OpenSearchTestCase 
                 Collections.emptySet(),
                 Collections.emptySet()
             );
-
-//            TransportService mockTransportService = mock(TransportService.class);
-//            DiscoveryNode mockDiscoveryNode = mock(DiscoveryNode.class);
-//            when(mockTransportService.getLocalNode()).thenReturn(mockDiscoveryNode);
-//            queryGroupService = new QueryGroupService(mockTransportService.getLocalNode(), mock(ClusterService.class), queryGroupStateMap);
 
             sut = new QueryGroupRequestOperationListener(queryGroupService, testThreadPool);
             sut.onRequestFailure(null, null);

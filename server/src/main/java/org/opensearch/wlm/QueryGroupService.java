@@ -57,7 +57,7 @@ public class QueryGroupService extends AbstractLifecycleComponent
     private final ThreadPool threadPool;
     private final ClusterService clusterService;
     private final WorkloadManagementSettings workloadManagementSettings;
-    private final Set<QueryGroup> activeQueryGroups;
+    private Set<QueryGroup> activeQueryGroups;
     private final Set<QueryGroup> deletedQueryGroups;
     private final NodeDuressTrackers nodeDuressTrackers;
 
@@ -176,7 +176,6 @@ public class QueryGroupService extends AbstractLifecycleComponent
                 // New query group detected
                 QueryGroup newQueryGroup = currentQueryGroups.get(queryGroupName);
                 // Perform any necessary actions with the new query group
-                this.activeQueryGroups.add(newQueryGroup);
                 queryGroupStateMap.put(newQueryGroup.get_id(), new QueryGroupState());
             }
         }
@@ -191,6 +190,8 @@ public class QueryGroupService extends AbstractLifecycleComponent
                 queryGroupStateMap.remove(deletedQueryGroup.get_id());
             }
         }
+
+        this.activeQueryGroups = new HashSet<>(currentQueryGroups.values());
     }
 
     /**
@@ -223,10 +224,20 @@ public class QueryGroupService extends AbstractLifecycleComponent
         return new QueryGroupStats(statsHolderMap);
     }
 
+    private double getNodeLevelRejectionThreshold(double resourceLimit, ResourceType resourceType) {
+        if (resourceType == ResourceType.CPU) {
+            return workloadManagementSettings.getNodeLevelCpuRejectionThreshold() * resourceLimit ;
+        } else if (resourceType == ResourceType.MEMORY) {
+            return workloadManagementSettings.getNodeLevelMemoryRejectionThreshold() * resourceLimit;
+        }
+        throw new IllegalArgumentException(resourceType + " is not yet a tracked resource type in WLM");
+    }
+
     /**
      * @param queryGroupId query group identifier
      */
     public void rejectIfNeeded(String queryGroupId) {
+        if (workloadManagementSettings.getWlmMode() != WlmMode.ENABLED) return;
         if (queryGroupId == null || queryGroupId.equals(QueryGroupTask.DEFAULT_QUERY_GROUP_ID_SUPPLIER.get())) return;
         QueryGroupState queryGroupState = queryGroupStateMap.get(queryGroupId);
 
@@ -247,7 +258,7 @@ public class QueryGroupService extends AbstractLifecycleComponent
             final StringBuilder reason = new StringBuilder();
             for (ResourceType resourceType : TRACKED_RESOURCES) {
                 if (queryGroup.getResourceLimits().containsKey(resourceType)) {
-                    final double threshold = queryGroup.getResourceLimits().get(resourceType);
+                    final double threshold = getNodeLevelRejectionThreshold(queryGroup.getResourceLimits().get(resourceType), resourceType);
                     final double lastRecordedUsage = queryGroupState.getResourceState().get(resourceType).getLastRecordedUsage();
                     if (threshold < lastRecordedUsage) {
                         reject = true;

@@ -38,10 +38,10 @@ public class WorkloadManagementSettings {
     /**
      * Setting name for QueryGroupService node duress streak
      */
-    public static final String QUERYGROUP_SERVICE_DURESS_STREAK_SETTING_NAME = "wlm.query_group.service.duress_streak";
+    public static final String QUERYGROUP_DURESS_STREAK_SETTING_NAME = "wlm.query_group.duress_streak";
     private int duressStreak;
     public static final Setting<Integer> QUERYGROUP_SERVICE_DURESS_STREAK_SETTING = Setting.intSetting(
-        QUERYGROUP_SERVICE_DURESS_STREAK_SETTING_NAME,
+        QUERYGROUP_DURESS_STREAK_SETTING_NAME,
         3,
         3,
         Setting.Property.Dynamic,
@@ -51,14 +51,14 @@ public class WorkloadManagementSettings {
     /**
      * Setting name for Query Group Service run interval
      */
-    public static final String QUERYGROUP_SERVICE_RUN_INTERVAL_SETTING_NAME = "wlm.query_group.service.run_interval";
+    public static final String QUERYGROUP_ENFORCEMENT_INTERVAL_SETTING_NAME = "wlm.query_group.enforcement_interval";
 
     private TimeValue queryGroupServiceRunInterval;
     /**
      * Setting to control the run interval of Query Group Service
      */
     public static final Setting<Long> QUERYGROUP_SERVICE_RUN_INTERVAL_SETTING = Setting.longSetting(
-        QUERYGROUP_SERVICE_RUN_INTERVAL_SETTING_NAME,
+        QUERYGROUP_ENFORCEMENT_INTERVAL_SETTING_NAME,
         DEFAULT_QUERYGROUP_SERVICE_RUN_INTERVAL_MILLIS,
         1000,
         Setting.Property.Dynamic,
@@ -184,7 +184,7 @@ public class WorkloadManagementSettings {
      * node duress streak setter
      * @param duressStreak new value
      */
-    public void setDuressStreak(int duressStreak) {
+    private void setDuressStreak(int duressStreak) {
         this.duressStreak = duressStreak;
     }
 
@@ -192,7 +192,7 @@ public class WorkloadManagementSettings {
      * queryGroupServiceRunInterval setter
      * @param newIntervalInMillis new value
      */
-    public void setQueryGroupServiceRunInterval(long newIntervalInMillis) {
+    private void setQueryGroupServiceRunInterval(long newIntervalInMillis) {
         this.queryGroupServiceRunInterval = TimeValue.timeValueMillis(newIntervalInMillis);
     }
 
@@ -208,7 +208,7 @@ public class WorkloadManagementSettings {
      * WlmMode setter
      * @param mode new mode value
      */
-    public void setWlmMode(final WlmMode mode) {
+    private void setWlmMode(final WlmMode mode) {
         this.wlmMode = mode;
     }
 

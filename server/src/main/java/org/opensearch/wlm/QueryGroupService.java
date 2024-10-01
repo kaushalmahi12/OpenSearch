@@ -137,13 +137,12 @@ public class QueryGroupService extends AbstractLifecycleComponent
         if (workloadManagementSettings.getWlmMode() == WlmMode.DISABLED) {
             return;
         }
-        taskCancellationService.refreshQueryGroups(activeQueryGroups, deletedQueryGroups);
-        taskCancellationService.cancelTasks(nodeDuressTrackers::isNodeInDuress);
-        taskCancellationService.pruneDeletedQueryGroups();
+        taskCancellationService.cancelTasks(nodeDuressTrackers::isNodeInDuress, activeQueryGroups, deletedQueryGroups);
+        taskCancellationService.pruneDeletedQueryGroups(deletedQueryGroups);
     }
 
     private QueryGroupState getQueryGroupState(final String queryGroupId) {
-        return queryGroupStateMap.get(queryGroupId);
+        return queryGroupStateMap.getOrDefault(queryGroupId, queryGroupStateMap.get(QueryGroupTask.DEFAULT_QUERY_GROUP_ID_SUPPLIER.get()));
     }
 
     /**
@@ -267,7 +266,10 @@ public class QueryGroupService extends AbstractLifecycleComponent
      * @param queryGroupId query group identifier
      */
     public void rejectIfNeeded(String queryGroupId) {
-        if (workloadManagementSettings.getWlmMode() != WlmMode.ENABLED) return;
+        if (workloadManagementSettings.getWlmMode() != WlmMode.ENABLED) {
+            return;
+        }
+
         if (queryGroupId == null || queryGroupId.equals(QueryGroupTask.DEFAULT_QUERY_GROUP_ID_SUPPLIER.get())) return;
         QueryGroupState queryGroupState = queryGroupStateMap.get(queryGroupId);
 
@@ -288,7 +290,10 @@ public class QueryGroupService extends AbstractLifecycleComponent
             final StringBuilder reason = new StringBuilder();
             for (ResourceType resourceType : TRACKED_RESOURCES) {
                 if (queryGroup.getResourceLimits().containsKey(resourceType)) {
-                    final double threshold = getNodeLevelRejectionThreshold(queryGroup.getResourceLimits().get(resourceType), resourceType);
+                    final double threshold = getNormalisedRejectionThreshold(
+                        queryGroup.getResourceLimits().get(resourceType),
+                        resourceType
+                    );
                     final double lastRecordedUsage = queryGroupState.getResourceState().get(resourceType).getLastRecordedUsage();
                     if (threshold < lastRecordedUsage) {
                         reject = true;
@@ -313,12 +318,36 @@ public class QueryGroupService extends AbstractLifecycleComponent
         });
     }
 
+    private double getNormalisedRejectionThreshold(double limit, ResourceType resourceType) {
+        if (resourceType == ResourceType.CPU) {
+            return limit * workloadManagementSettings.getNodeLevelCpuRejectionThreshold();
+        } else if (resourceType == ResourceType.MEMORY) {
+            return limit * workloadManagementSettings.getNodeLevelMemoryRejectionThreshold();
+        }
+        throw new IllegalArgumentException(resourceType + " is not supported in WLM yet");
+    }
+
     public Set<QueryGroup> getActiveQueryGroups() {
         return activeQueryGroups;
     }
 
     public Set<QueryGroup> getDeletedQueryGroups() {
         return deletedQueryGroups;
+    }
+
+    /**
+     * This method determines whether the task should be accounted by SBP if both features co-exist
+     * @param t QueryGroupTask
+     * @return whether or not SBP handle it
+     */
+    public boolean shouldSBPHandle(Task t) {
+        QueryGroupTask task = (QueryGroupTask) t;
+        boolean isInvalidQueryGroupTask = true;
+        if (!task.getQueryGroupId().equals(QueryGroupTask.DEFAULT_QUERY_GROUP_ID_SUPPLIER.get())) {
+            isInvalidQueryGroupTask = activeQueryGroups.stream()
+                .noneMatch(queryGroup -> queryGroup.get_id().equals(task.getQueryGroupId()));
+        }
+        return workloadManagementSettings.getWlmMode() != WlmMode.ENABLED || isInvalidQueryGroupTask;
     }
 
     @Override

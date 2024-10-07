@@ -355,6 +355,7 @@ public class QueryGroupServiceTests extends OpenSearchTestCase {
 
         queryGroupService = new QueryGroupService(
             mockCancellationService,
+            mockTransportService,
             mockClusterService,
             mockThreadPool,
             mockWorkloadManagementSettings,
@@ -423,6 +424,7 @@ public class QueryGroupServiceTests extends OpenSearchTestCase {
         mockQueryGroupStateMap.put("testId", queryGroupState);
         queryGroupService = new QueryGroupService(
             mockCancellationService,
+            mockTransportService,
             mockClusterService,
             mockThreadPool,
             mockWorkloadManagementSettings,

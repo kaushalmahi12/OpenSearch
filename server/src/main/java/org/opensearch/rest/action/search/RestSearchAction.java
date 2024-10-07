@@ -32,6 +32,8 @@
 
 package org.opensearch.rest.action.search;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.search.SearchAction;
@@ -96,6 +98,8 @@ public class RestSearchAction extends BaseRestHandler {
         );
         RESPONSE_PARAMS = Collections.unmodifiableSet(responseParams);
     }
+
+    private Logger logger = LogManager.getLogger(RestSearchAction.class);
 
     @Override
     public String getName() {

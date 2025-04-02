@@ -36,13 +36,13 @@ import org.opensearch.plugin.wlm.rest.RestCreateQueryGroupAction;
 import org.opensearch.plugin.wlm.rest.RestDeleteQueryGroupAction;
 import org.opensearch.plugin.wlm.rest.RestGetQueryGroupAction;
 import org.opensearch.plugin.wlm.rest.RestUpdateQueryGroupAction;
-import org.opensearch.plugin.wlm.rule.InMemoryRuleProcessingService;
 import org.opensearch.plugin.wlm.service.QueryGroupPersistenceService;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
+import org.opensearch.rule.InMemoryRuleProcessingService;
 import org.opensearch.script.ScriptService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.client.Client;
@@ -66,7 +66,7 @@ public class WorkloadManagementPlugin extends Plugin implements ActionPlugin {
 
     @Override
     public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool, ResourceWatcherService resourceWatcherService, ScriptService scriptService, NamedXContentRegistry xContentRegistry, Environment environment, NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry, IndexNameExpressionResolver indexNameExpressionResolver, Supplier<RepositoriesService> repositoriesServiceSupplier) {
-        InMemoryRuleProcessingService ruleProcessingService = new InMemoryRuleProcessingService();
+        InMemoryRuleProcessingService ruleProcessingService = new InMemoryRuleProcessingService(null, null);// TODO: this will change post Ruirui's PR
         autoTaggingActionFilter = new AutoTaggingActionFilter(ruleProcessingService, threadPool);
         return Collections.emptyList();
     }

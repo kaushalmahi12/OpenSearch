@@ -59,14 +59,28 @@ import java.util.function.Supplier;
 public class WorkloadManagementPlugin extends Plugin implements ActionPlugin {
 
     private AutoTaggingActionFilter autoTaggingActionFilter;
+
     /**
      * Default constructor
      */
     public WorkloadManagementPlugin() {}
 
     @Override
-    public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool, ResourceWatcherService resourceWatcherService, ScriptService scriptService, NamedXContentRegistry xContentRegistry, Environment environment, NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry, IndexNameExpressionResolver indexNameExpressionResolver, Supplier<RepositoriesService> repositoriesServiceSupplier) {
-        InMemoryRuleProcessingService ruleProcessingService = new InMemoryRuleProcessingService(null, null);// TODO: this will change post Ruirui's PR
+    public Collection<Object> createComponents(
+        Client client,
+        ClusterService clusterService,
+        ThreadPool threadPool,
+        ResourceWatcherService resourceWatcherService,
+        ScriptService scriptService,
+        NamedXContentRegistry xContentRegistry,
+        Environment environment,
+        NodeEnvironment nodeEnvironment,
+        NamedWriteableRegistry namedWriteableRegistry,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        Supplier<RepositoriesService> repositoriesServiceSupplier
+    ) {
+        InMemoryRuleProcessingService ruleProcessingService = new InMemoryRuleProcessingService(null, null);// TODO: this will change post
+                                                                                                            // Ruirui's PR
         autoTaggingActionFilter = new AutoTaggingActionFilter(ruleProcessingService, threadPool);
         return Collections.emptyList();
     }

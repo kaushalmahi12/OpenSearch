@@ -263,7 +263,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         builders.put(Names.ANALYZE, new FixedExecutorBuilder(settings, Names.ANALYZE, 1, 16));
         builders.put(
             Names.SEARCH,
-            new FixedExecutorBuilder(settings, Names.SEARCH, 2, 1000)
+            new FixedExecutorBuilder(settings, Names.SEARCH, 120, 1000)
         );
         // TODO: configure the appropriate size and explore use of virtual threads
         builders.put(
@@ -331,7 +331,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
             new FixedExecutorBuilder(
                 settings,
                 Names.INDEX_SEARCHER,
-                2,
+                136,
                 1000
             )
         );

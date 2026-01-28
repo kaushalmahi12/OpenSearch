@@ -45,8 +45,11 @@ import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.admin.indices.stats.CommonStats;
 import org.opensearch.action.admin.indices.stats.CommonStatsFlags;
 import org.opensearch.action.admin.indices.stats.CommonStatsFlags.Flag;
+import org.opensearch.action.admin.indices.stats.DocStatusStats;
 import org.opensearch.action.admin.indices.stats.IndexShardStats;
+import org.opensearch.action.admin.indices.stats.SearchResponseStatusStats;
 import org.opensearch.action.admin.indices.stats.ShardStats;
+import org.opensearch.action.admin.indices.stats.StatusCounterStats;
 import org.opensearch.action.search.SearchRequestStats;
 import org.opensearch.action.search.SearchType;
 import org.opensearch.cluster.ClusterState;
@@ -106,6 +109,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.IngestionConsumerFactory;
+import org.opensearch.index.MergeSchedulerConfig;
 import org.opensearch.index.ReplicationStats;
 import org.opensearch.index.analysis.AnalysisRegistry;
 import org.opensearch.index.cache.request.ShardRequestCache;
@@ -131,6 +135,7 @@ import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.recovery.RecoveryStats;
 import org.opensearch.index.refresh.RefreshStats;
 import org.opensearch.index.remote.RemoteStoreStatsTrackerFactory;
+import org.opensearch.index.remote.RemoteStoreUtils;
 import org.opensearch.index.search.stats.SearchStats;
 import org.opensearch.index.seqno.RetentionLeaseStats;
 import org.opensearch.index.seqno.RetentionLeaseSyncer;
@@ -141,7 +146,6 @@ import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.shard.IndexShardState;
 import org.opensearch.index.shard.IndexingOperationListener;
 import org.opensearch.index.shard.IndexingStats;
-import org.opensearch.index.shard.IndexingStats.Stats.DocStatusStats;
 import org.opensearch.index.store.remote.filecache.FileCache;
 import org.opensearch.index.translog.InternalTranslogFactory;
 import org.opensearch.index.translog.RemoteBlobStoreInternalTranslogFactory;
@@ -416,6 +420,8 @@ public class IndicesService extends AbstractLifecycleComponent
     private final Function<ShardId, ReplicationStats> segmentReplicationStatsProvider;
     private volatile int maxSizeInRequestCache;
     private volatile int defaultMaxMergeAtOnce;
+    private final StatusCounterStats statusCounterStats;
+    private final ClusterMergeSchedulerConfig clusterMergeSchedulerConfig;
 
     @Override
     protected void doStart() {
@@ -589,8 +595,16 @@ public class IndicesService extends AbstractLifecycleComponent
             .addSettingsUpdateConsumer(INDICES_REQUEST_CACHE_MAX_SIZE_ALLOWED_IN_CACHE_SETTING, this::setMaxSizeInRequestCache);
 
         this.defaultMaxMergeAtOnce = CLUSTER_DEFAULT_INDEX_MAX_MERGE_AT_ONCE_SETTING.get(clusterService.getSettings());
+        this.clusterMergeSchedulerConfig = new ClusterMergeSchedulerConfig(this);
+
         clusterService.getClusterSettings()
             .addSettingsUpdateConsumer(CLUSTER_DEFAULT_INDEX_MAX_MERGE_AT_ONCE_SETTING, this::onDefaultMaxMergeAtOnceUpdate);
+        this.statusCounterStats = new StatusCounterStats();
+        clusterService.getClusterSettings()
+            .addSettingsUpdateConsumer(
+                MergeSchedulerConfig.CLUSTER_MAX_FORCE_MERGE_MB_PER_SEC_SETTING,
+                this::onClusterLevelForceMergeMBPerSecUpdate
+            );
     }
 
     @InternalApi
@@ -694,6 +708,20 @@ public class IndicesService extends AbstractLifecycleComponent
         }
     }
 
+    /**
+     * The changes to dynamic cluster setting {@code cluster.merge.scheduler.max_force_merge_mb_per_sec} needs to be updated. This
+     * method gets called whenever the setting changes. We notify the change to all IndexService instances that are created on this node
+     * so they can update their merge schedulers accordingly.
+     *
+     * @param maxForceMergeMBPerSec the updated cluster max force merge MB per second rate.
+     */
+    private void onClusterLevelForceMergeMBPerSecUpdate(double maxForceMergeMBPerSec) {
+        for (Map.Entry<String, IndexService> entry : indices.entrySet()) {
+            IndexService indexService = entry.getValue();
+            indexService.onClusterLevelForceMergeMBPerSecUpdate(maxForceMergeMBPerSec);
+        }
+    }
+
     private static BiFunction<IndexSettings, ShardRouting, TranslogFactory> getTranslogFactorySupplier(
         Supplier<RepositoriesService> repositoriesServiceSupplier,
         ThreadPool threadPool,
@@ -708,7 +736,8 @@ public class IndicesService extends AbstractLifecycleComponent
                     threadPool,
                     indexSettings.getRemoteStoreTranslogRepository(),
                     remoteStoreStatsTrackerFactory.getRemoteTranslogTransferTracker(shardRouting.shardId()),
-                    remoteStoreSettings
+                    remoteStoreSettings,
+                    RemoteStoreUtils.isServerSideEncryptionEnabledIndex(indexSettings.getIndexMetadata())
                 );
             } else if (RemoteStoreNodeAttribute.isTranslogRepoConfigured(settings) && shardRouting.primary()) {
                 return new RemoteBlobStoreInternalTranslogFactory(
@@ -716,7 +745,8 @@ public class IndicesService extends AbstractLifecycleComponent
                     threadPool,
                     RemoteStoreNodeAttribute.getRemoteStoreTranslogRepo(indexSettings.getNodeSettings()),
                     remoteStoreStatsTrackerFactory.getRemoteTranslogTransferTracker(shardRouting.shardId()),
-                    remoteStoreSettings
+                    remoteStoreSettings,
+                    RemoteStoreUtils.isServerSideEncryptionEnabledIndex(indexSettings.getIndexMetadata())
                 );
             }
             return new InternalTranslogFactory();
@@ -805,9 +835,9 @@ public class IndicesService extends AbstractLifecycleComponent
         }
         if (flags.getIncludeIndicesStatsByLevel()) {
             NodeIndicesStats.StatsLevel statsLevel = NodeIndicesStats.getAcceptedLevel(flags.getLevels());
-            return new NodeIndicesStats(commonStats, statsByShard(this, flags), searchRequestStats, statsLevel);
+            return new NodeIndicesStats(commonStats, statsByShard(this, flags), searchRequestStats, statusCounterStats, statsLevel);
         } else {
-            return new NodeIndicesStats(commonStats, statsByShard(this, flags), searchRequestStats);
+            return new NodeIndicesStats(commonStats, statsByShard(this, flags), searchRequestStats, statusCounterStats);
         }
     }
 
@@ -863,15 +893,14 @@ public class IndicesService extends AbstractLifecycleComponent
         return new IndexShardStats(
             indexShard.shardId(),
             new ShardStats[] {
-                new ShardStats(
-                    indexShard.routingEntry(),
-                    indexShard.shardPath(),
-                    new CommonStats(indicesService.getIndicesQueryCache(), indexShard, flags),
-                    commitStats,
-                    seqNoStats,
-                    retentionLeaseStats,
-                    pollingIngestStats
-                ) }
+                new ShardStats.Builder().shardRouting(indexShard.routingEntry())
+                    .shardPath(indexShard.shardPath())
+                    .commonStats(new CommonStats(indicesService.getIndicesQueryCache(), indexShard, flags))
+                    .commitStats(commitStats)
+                    .seqNoStats(seqNoStats)
+                    .retentionLeaseStats(retentionLeaseStats)
+                    .pollingIngestStats(pollingIngestStats)
+                    .build() }
         );
     }
 
@@ -1101,7 +1130,8 @@ public class IndicesService extends AbstractLifecycleComponent
             this.remoteStoreSettings,
             replicator,
             segmentReplicationStatsProvider,
-            this::getClusterDefaultMaxMergeAtOnce
+            this::getClusterDefaultMaxMergeAtOnce,
+            clusterMergeSchedulerConfig
         );
     }
 
@@ -1202,11 +1232,6 @@ public class IndicesService extends AbstractLifecycleComponent
     public synchronized void verifyIndexMetadata(IndexMetadata metadata, IndexMetadata metadataUpdate) throws IOException {
         final List<Closeable> closeables = new ArrayList<>();
         try {
-            IndicesFieldDataCache indicesFieldDataCache = new IndicesFieldDataCache(settings, new IndexFieldDataCache.Listener() {
-            }, clusterService, threadPool);
-            closeables.add(indicesFieldDataCache);
-            IndicesQueryCache indicesQueryCache = new IndicesQueryCache(settings, clusterService.getClusterSettings());
-            closeables.add(indicesQueryCache);
             // this will also fail if some plugin fails etc. which is nice since we can verify that early
             final IndexService service = createIndexService(
                 METADATA_VERIFICATION,
@@ -1358,12 +1383,31 @@ public class IndicesService extends AbstractLifecycleComponent
     }
 
     /**
-     * Accumulate stats from the passed Object
+     * Accumulate stats from the passed Object. Use this instead of
+     * {@link #addDocStatusStats(org.opensearch.index.shard.IndexingStats.Stats.DocStatusStats)} after
+     * Version 3.4.0
      *
      * @param stats Instance storing {@link DocStatusStats}
      */
     public void addDocStatusStats(final DocStatusStats stats) {
+        statusCounterStats.getDocStatusStats().add(stats);
+    }
+
+    /**
+     * Accumulate stats from the passed Object
+     *
+     * @param stats Instance storing {@link org.opensearch.index.shard.IndexingStats.Stats.DocStatusStats}
+     */
+    @Deprecated(since = "3.4.0")
+    public void addDocStatusStats(final org.opensearch.index.shard.IndexingStats.Stats.DocStatusStats stats) {
         oldShardsStats.indexingStats.getTotal().getDocStatusStats().add(stats);
+    }
+
+    /**
+     * Retrieves the current statistics for search response (Not a snapshot).
+     */
+    public SearchResponseStatusStats getSearchResponseStatusStats() {
+        return statusCounterStats.getSearchResponseStatusStats();
     }
 
     /**

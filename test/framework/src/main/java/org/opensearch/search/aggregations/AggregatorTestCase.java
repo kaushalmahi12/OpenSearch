@@ -103,6 +103,7 @@ import org.opensearch.index.mapper.CompositeDataCubeFieldType;
 import org.opensearch.index.mapper.CompositeMappedFieldType;
 import org.opensearch.index.mapper.ConstantKeywordFieldMapper;
 import org.opensearch.index.mapper.ContentPath;
+import org.opensearch.index.mapper.ContextAwareGroupingFieldMapper;
 import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.index.mapper.DerivedFieldMapper;
 import org.opensearch.index.mapper.FieldAliasMapper;
@@ -217,6 +218,7 @@ public abstract class AggregatorTestCase extends OpenSearchTestCase {
         denylist.add(DerivedFieldMapper.CONTENT_TYPE); // TODO support derived fields
         denylist.add(StarTreeMapper.CONTENT_TYPE); // TODO evaluate support for star tree fields
         denylist.add(SemanticVersionFieldMapper.CONTENT_TYPE); // TODO support for semantic version fields
+        denylist.add(ContextAwareGroupingFieldMapper.CONTENT_TYPE); // Cannot aggregate context aware groupings
         TYPE_TEST_DENYLIST = denylist;
     }
 
@@ -544,6 +546,9 @@ public abstract class AggregatorTestCase extends OpenSearchTestCase {
         fieldNameToType.putAll(getFieldAliases(fieldTypes));
 
         when(searchContext.maxAggRewriteFilters()).thenReturn(10_000);
+        when(searchContext.cardinalityAggregationContext()).thenReturn(
+            new org.opensearch.search.aggregations.metrics.CardinalityAggregationContext(false, Runtime.getRuntime().maxMemory() / 100)
+        );
         registerFieldTypes(searchContext, mapperService, fieldNameToType);
         doAnswer(invocation -> {
             /* Store the release-ables so we can release them at the end of the test case. This is important because aggregations don't

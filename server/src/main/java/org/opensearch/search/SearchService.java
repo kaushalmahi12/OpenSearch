@@ -379,6 +379,13 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
         Setting.Property.Dynamic
     );
 
+    public static final Setting<Boolean> SEARCH_MAX_QUERY_STRING_LENGTH_MONITOR_ONLY = Setting.boolSetting(
+        "search.query.max_query_string_length_monitor_only",
+        false,
+        Setting.Property.NodeScope,
+        Setting.Property.Dynamic
+    );
+
     public static final Setting<Boolean> CLUSTER_ALLOW_DERIVED_FIELD_SETTING = Setting.boolSetting(
         "search.derived_field.enabled",
         true,
@@ -537,6 +544,12 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
         QueryStringQueryParser.setMaxQueryStringLength(SEARCH_MAX_QUERY_STRING_LENGTH.get(settings));
         clusterService.getClusterSettings()
             .addSettingsUpdateConsumer(SEARCH_MAX_QUERY_STRING_LENGTH, QueryStringQueryParser::setMaxQueryStringLength);
+        QueryStringQueryParser.setMaxQueryStringLengthMonitorMode(SEARCH_MAX_QUERY_STRING_LENGTH_MONITOR_ONLY.get(settings));
+        clusterService.getClusterSettings()
+            .addSettingsUpdateConsumer(
+                SEARCH_MAX_QUERY_STRING_LENGTH_MONITOR_ONLY,
+                QueryStringQueryParser::setMaxQueryStringLengthMonitorMode
+            );
 
         allowDerivedField = CLUSTER_ALLOW_DERIVED_FIELD_SETTING.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(CLUSTER_ALLOW_DERIVED_FIELD_SETTING, this::setAllowDerivedField);
@@ -1213,8 +1226,8 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
      */
     public PitReaderContext getPitReaderContext(ShardSearchContextId id) {
         ReaderContext context = activeReaders.get(id.getId());
-        if (context instanceof PitReaderContext) {
-            return (PitReaderContext) context;
+        if (context instanceof PitReaderContext pitReaderContext) {
+            return pitReaderContext;
         }
         return null;
     }
@@ -1225,8 +1238,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
     public List<ListPitInfo> getAllPITReaderContexts() {
         final List<ListPitInfo> pitContextsInfo = new ArrayList<>();
         for (ReaderContext ctx : activeReaders.values()) {
-            if (ctx instanceof PitReaderContext) {
-                final PitReaderContext context = (PitReaderContext) ctx;
+            if (ctx instanceof PitReaderContext context) {
                 ListPitInfo pitInfo = new ListPitInfo(context.getPitId(), context.getCreationTime(), context.getKeepAlive());
                 pitContextsInfo.add(pitInfo);
             }
